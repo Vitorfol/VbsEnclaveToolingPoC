@@ -7,9 +7,7 @@
 #ifndef PCH_H
 #define PCH_H
 
-// Include the wil_for_enclave header file. This is needed so you can use the 
-// Windows Implementation Library and other Windows #defines that appear in dllmain.cpp
-// You can also access Windows Macros via the windows.h header.
+// Minimal includes for VTL1 enclave - avoid unnecessary dependencies
 #include <wil\enclave\wil_for_enclaves.h>
 
 #endif //PCH_H
