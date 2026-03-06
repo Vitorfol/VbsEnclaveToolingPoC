@@ -1,0 +1,22 @@
+# Generated code folders
+Generated Files/
+
+# Build outputs
+bin/
+obj/
+*.user
+*.suo
+*.sln.docstates
+.vs/
+
+# NuGet packages
+packages/
+!packages.config
+
+# Compiled binaries
+*.dll
+*.exe
+*.pdb
+*.ilk
+*.exp
+*.lib

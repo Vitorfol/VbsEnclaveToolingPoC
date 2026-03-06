@@ -1,0 +1,282 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="..\packages\Microsoft.Windows.VbsEnclave.CodeGenerator.0.1.0-prerelease.250731.6\build\native\Microsoft.Windows.VbsEnclave.CodeGenerator.props" Condition="Exists('..\packages\Microsoft.Windows.VbsEnclave.CodeGenerator.0.1.0-prerelease.250731.6\build\native\Microsoft.Windows.VbsEnclave.CodeGenerator.props')" />
+  <Import Project="..\packages\Microsoft.Windows.VbsEnclave.SDK.0.0.2-prerelease.250520.3\build\native\Microsoft.Windows.VbsEnclave.SDK.props" Condition="Exists('..\packages\Microsoft.Windows.VbsEnclave.SDK.0.0.2-prerelease.250520.3\build\native\Microsoft.Windows.VbsEnclave.SDK.props')" />
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|ARM64">
+      <Configuration>Debug</Configuration>
+      <Platform>ARM64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|ARM64">
+      <Configuration>Release</Configuration>
+      <Platform>ARM64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <VCProjectVersion>17.0</VCProjectVersion>
+    <Keyword>Win32Proj</Keyword>
+    <ProjectGuid>{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}</ProjectGuid>
+    <RootNamespace>Trusted</RootNamespace>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'" Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'" Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Label="Shared">
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <LinkIncremental>false</LinkIncremental>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">
+    <LinkIncremental>false</LinkIncremental>
+  </PropertyGroup>
+  <!-- ********* -->
+  <!-- Paths to enclave libraries -->
+  <!-- ********* -->
+  <PropertyGroup Label="EnclaveLibs">
+    <VC_LibraryPath_Enclave Condition="'$(Platform)'=='x64'">$(VC_LibraryPath_VC_x64_Desktop)\enclave</VC_LibraryPath_Enclave>
+    <VC_LibraryPath_Enclave Condition="'$(Platform)'=='ARM64'">$(VC_LibraryPath_VC_arm64_Desktop)\enclave</VC_LibraryPath_Enclave>
+    <WindowsSDK_LibraryPath_Enclave>$(WindowsSDK_LibraryPath)\..\ucrt_enclave\$(Platform)</WindowsSDK_LibraryPath_Enclave>
+    <VBS_Enclave_Dependencies>
+      vertdll.lib;
+      bcrypt.lib;
+      $(VC_LibraryPath_Enclave)\libcmt.lib;
+      $(VC_LibraryPath_Enclave)\libvcruntime.lib;
+      $(WindowsSDK_LibraryPath_Enclave)\ucrt.lib;
+    </VBS_Enclave_Dependencies>
+  </PropertyGroup>
+  <!-- ********* -->
+  <!-- EDL Code Generator properties -->
+  <!-- ********* -->
+  <PropertyGroup Label="EDL codegen props">
+    <VbsEnclaveEdlPath>$(ProjectDir)..\PoC.edl</VbsEnclaveEdlPath>
+    <VbsEnclaveNamespace>VbsEnclave</VbsEnclaveNamespace>
+    <VbsEnclaveVirtualTrustLayer>Enclave</VbsEnclaveVirtualTrustLayer>
+  </PropertyGroup>
+  <!-- ********* -->
+  <!-- Property Group for Cert to sign with -->
+  <!-- ********* -->
+  <PropertyGroup Label="Test Signing certificate">
+    <EnclaveCertName>TheDefaultTestEnclaveCertName</EnclaveCertName>
+  </PropertyGroup>
+  <!-- ********* -->
+  <!-- Properties for Post-Build Commands -->
+  <!-- ********* -->
+  <PropertyGroup Label="Post-Build command props">
+    <VEIID_Command>"$(WindowsSDKVersionedBinRoot)\$(PlatformTarget)\veiid.exe" "$(OutDir)$(TargetName)$(TargetExt)"</VEIID_Command>
+    <SIGNTOOL_Command>signtool sign /ph /fd SHA256 /n "$(EnclaveCertName)" "$(OutDir)$(TargetName)$(TargetExt)"</SIGNTOOL_Command>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <SDLCheck>true</SDLCheck>
+      <PreprocessorDefinitions>ARM64;_DEBUG;TRUSTED_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ConformanceMode>true</ConformanceMode>
+      <PrecompiledHeader>Use</PrecompiledHeader>
+      <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <BasicRuntimeChecks>Default</BasicRuntimeChecks>
+      <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <EnableUAC>false</EnableUAC>
+      <AdditionalOptions>/ENCLAVE /INTEGRITYCHECK /GUARD:MIXED</AdditionalOptions>
+      <AdditionalDependencies>$(VBS_Enclave_Dependencies)</AdditionalDependencies>
+      <IgnoreAllDefaultLibraries>true</IgnoreAllDefaultLibraries>
+    </Link>
+      <!-- ********* -->
+      <!-- Post-Build steps - Apply VEIID protection and sign the enclave dll -->
+      <!-- ********* -->
+    <PostBuildEvent>
+      <Command>
+        $(VEIID_Command)
+        $(SIGNTOOL_Command)
+      </Command>
+      <Message>Apply VEIID Protection and sign the enclave</Message>
+    </PostBuildEvent>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <SDLCheck>true</SDLCheck>
+      <PreprocessorDefinitions>ARM64;NDEBUG;TRUSTED_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ConformanceMode>true</ConformanceMode>
+      <PrecompiledHeader>Use</PrecompiledHeader>
+      <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
+      <BasicRuntimeChecks>Default</BasicRuntimeChecks>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <EnableUAC>false</EnableUAC>
+      <AdditionalOptions>/ENCLAVE /INTEGRITYCHECK /GUARD:MIXED</AdditionalOptions>
+      <AdditionalDependencies>$(VBS_Enclave_Dependencies)</AdditionalDependencies>
+      <IgnoreAllDefaultLibraries>true</IgnoreAllDefaultLibraries>
+    </Link>
+    <!-- ********* -->
+    <!-- Post-Build steps - Apply VEIID protection and sign the enclave dll -->
+    <!-- ********* -->
+    <PostBuildEvent>
+      <Command>
+        $(VEIID_Command)
+        $(SIGNTOOL_Command)
+      </Command>
+      <Message>Apply VEIID Protection and sign the enclave</Message>
+    </PostBuildEvent>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <SDLCheck>true</SDLCheck>
+      <PreprocessorDefinitions>_DEBUG;TRUSTED_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ConformanceMode>true</ConformanceMode>
+      <PrecompiledHeader>Use</PrecompiledHeader>
+      <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <BasicRuntimeChecks>Default</BasicRuntimeChecks>
+      <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <EnableUAC>false</EnableUAC>
+      <AdditionalOptions>/ENCLAVE /INTEGRITYCHECK /GUARD:MIXED</AdditionalOptions>
+      <AdditionalDependencies>$(VBS_Enclave_Dependencies)</AdditionalDependencies>
+      <IgnoreAllDefaultLibraries>true</IgnoreAllDefaultLibraries>
+    </Link>
+      <!-- ********* -->
+      <!-- Post-Build steps - Apply VEIID protection and sign the enclave dll -->
+      <!-- ********* -->
+    <PostBuildEvent>
+      <Command>
+        $(VEIID_Command)
+        $(SIGNTOOL_Command)
+      </Command>
+      <Message>Apply VEIID Protection and sign the enclave</Message>
+    </PostBuildEvent>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <SDLCheck>true</SDLCheck>
+      <PreprocessorDefinitions>NDEBUG;TRUSTED_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ConformanceMode>true</ConformanceMode>
+      <PrecompiledHeader>Use</PrecompiledHeader>
+      <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
+      <BasicRuntimeChecks>Default</BasicRuntimeChecks>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <EnableUAC>false</EnableUAC>
+      <AdditionalOptions>/ENCLAVE /INTEGRITYCHECK /GUARD:MIXED</AdditionalOptions>
+      <AdditionalDependencies>$(VBS_Enclave_Dependencies)</AdditionalDependencies>
+      <IgnoreAllDefaultLibraries>true</IgnoreAllDefaultLibraries>
+    </Link>
+    <!-- ********* -->
+    <!-- Post-Build steps - Apply VEIID protection and sign the enclave dll -->
+    <!-- ********* -->
+    <PostBuildEvent>
+      <Command>
+        $(VEIID_Command)
+        $(SIGNTOOL_Command)
+      </Command>
+      <Message>Apply VEIID Protection and sign the enclave</Message>
+    </PostBuildEvent>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClInclude Include="pch.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="dllmain.cpp" />
+    <ClCompile Include="TrustedImplementation.cpp" />
+    <ClCompile Include="pch.cpp">
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">Create</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">Create</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="packages.config" />
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+    <Import Project="..\packages\Microsoft.Windows.ImplementationLibrary.1.0.240803.1\build\native\Microsoft.Windows.ImplementationLibrary.targets" Condition="Exists('..\packages\Microsoft.Windows.ImplementationLibrary.1.0.240803.1\build\native\Microsoft.Windows.ImplementationLibrary.targets')" />
+    <Import Project="..\packages\Microsoft.Windows.VbsEnclave.SDK.0.0.2-prerelease.250520.3\build\native\Microsoft.Windows.VbsEnclave.SDK.targets" Condition="Exists('..\packages\Microsoft.Windows.VbsEnclave.SDK.0.0.2-prerelease.250520.3\build\native\Microsoft.Windows.VbsEnclave.SDK.targets')" />
+    <Import Project="..\packages\Microsoft.Windows.VbsEnclave.CodeGenerator.0.1.0-prerelease.250731.6\build\native\Microsoft.Windows.VbsEnclave.CodeGenerator.targets" Condition="Exists('..\packages\Microsoft.Windows.VbsEnclave.CodeGenerator.0.1.0-prerelease.250731.6\build\native\Microsoft.Windows.VbsEnclave.CodeGenerator.targets')" />
+  </ImportGroup>
+  <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">
+    <PropertyGroup>
+      <ErrorText>This project references NuGet package(s) that are missing on this computer. Use NuGet Package Restore to download them.  For more information, see http://go.microsoft.com/fwlink/?LinkID=322105. The missing file is {0}.</ErrorText>
+    </PropertyGroup>
+    <Error Condition="!Exists('..\packages\Microsoft.Windows.ImplementationLibrary.1.0.240803.1\build\native\Microsoft.Windows.ImplementationLibrary.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\Microsoft.Windows.ImplementationLibrary.1.0.240803.1\build\native\Microsoft.Windows.ImplementationLibrary.targets'))" />
+    <Error Condition="!Exists('..\packages\Microsoft.Windows.VbsEnclave.SDK.0.0.2-prerelease.250520.3\build\native\Microsoft.Windows.VbsEnclave.SDK.props')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\Microsoft.Windows.VbsEnclave.SDK.0.0.2-prerelease.250520.3\build\native\Microsoft.Windows.VbsEnclave.SDK.props'))" />
+    <Error Condition="!Exists('..\packages\Microsoft.Windows.VbsEnclave.SDK.0.0.2-prerelease.250520.3\build\native\Microsoft.Windows.VbsEnclave.SDK.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\Microsoft.Windows.VbsEnclave.SDK.0.0.2-prerelease.250520.3\build\native\Microsoft.Windows.VbsEnclave.SDK.targets'))" />
+    <Error Condition="!Exists('..\packages\Microsoft.Windows.VbsEnclave.CodeGenerator.0.1.0-prerelease.250731.6\build\native\Microsoft.Windows.VbsEnclave.CodeGenerator.props')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\Microsoft.Windows.VbsEnclave.CodeGenerator.0.1.0-prerelease.250731.6\build\native\Microsoft.Windows.VbsEnclave.CodeGenerator.props'))" />
+    <Error Condition="!Exists('..\packages\Microsoft.Windows.VbsEnclave.CodeGenerator.0.1.0-prerelease.250731.6\build\native\Microsoft.Windows.VbsEnclave.CodeGenerator.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\Microsoft.Windows.VbsEnclave.CodeGenerator.0.1.0-prerelease.250731.6\build\native\Microsoft.Windows.VbsEnclave.CodeGenerator.targets'))" />
+  </Target>
+</Project>

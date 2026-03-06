@@ -1,0 +1,12 @@
+enclave
+{
+	trusted
+	{
+		// Store a secret string in VTL1 protected memory
+		// Returns the memory address where the secret is stored (for testing purposes)
+		uint64_t StoreSecret(wstring secret);
+		
+		// Read back the secret from VTL1 memory to verify integrity
+		wstring ReadSecret();
+	};
+};
