@@ -19,9 +19,8 @@ int main() {
     printf("[DATA] %s\n\n", g_testData);
     
     printf("Test with MemoryScanner:\n");
-    printf("  MemoryScanner.exe %lu 0x%p\n\n", GetCurrentProcessId(), (void*)g_testData);
+    printf("  .\MemoryScanner.exe %lu 0x%p\n\n", GetCurrentProcessId(), (void*)g_testData);
     
-    printf("Expected: SUCCESS (memory is readable)\n\n");
     printf("Press Ctrl+C to exit...\n");
     
     while (1) {

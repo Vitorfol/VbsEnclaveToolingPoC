@@ -65,6 +65,39 @@ VBS enclaves must be signed, even for development. You need to:
 
 ## Build Instructions
 
+## Quick Start
+
+If you just want to try the PoC quickly, follow these three steps. See the full sections below for details.
+
+1. Sign and prepare the enclave (one command):
+
+```powershell
+.\SignAndRunEnclave.ps1
+```
+
+2. Build the Memory Scanner (Attacker):
+
+```cmd
+cl.exe attacker.c /Fe:MemoryScanner.exe
+```
+
+3. Run the PoC:
+
+- In one terminal, start the HostApp (from your build output folder):
+
+```powershell
+cd x64\Release
+.\HostApp.exe
+```
+
+- In a second terminal (as Administrator), run the MemoryScanner with the printed PID and addresses:
+
+```powershell
+.\MemoryScanner.exe <PID> <VTL0_addr> <VTL1_addr>
+```
+
+Expected outcome: the scanner can read the public VTL0 data but cannot read the VTL1 enclave data. For full build and run details, see the "Build Instructions" and "Running the PoC" sections below.
+
 ### Step 1: Build SDK and CodeGenerator NuGet Packages
 
 From the repository root:
@@ -119,6 +152,50 @@ cl.exe attacker.c /Fe:MemoryScanner.exe
 
 :: Option 2: Add to separate console project in Visual Studio
 ```
+
+### Complete Build Flow (recommended)
+
+Use this flow to build the solution and the helper binaries used by the PoC.
+
+1. From a Developer Command Prompt (or PowerShell with msbuild on PATH), build the solution:
+
+```powershell
+cd SampleApps\MemoryProtectionPoC
+msbuild MemoryProtectionPoC.sln /p:Configuration=Release /p:Platform=x64
+```
+
+2. The solution build will produce `HostApp.exe`, `Trusted.dll` and related outputs under the solution `_build`/project output folders. If you prefer to compile the simple helper apps manually, run:
+
+```cmd
+:: Compile Normal control app
+cl.exe NormalApp.c /Fe:NormalApp.exe
+
+:: Compile attacker as MemoryScanner.exe (rename via /Fe)
+cl.exe attacker.c /Fe:MemoryScanner.exe
+```
+
+3. Sign and prepare the enclave (if not already done):
+
+```powershell
+.\SignAndRunEnclave.ps1
+```
+
+4. Run the HostApp from the build output (example path):
+
+```powershell
+cd x64\Release
+.\HostApp.exe
+```
+
+5. In a second terminal (Administrator), run the scanner using the printed PID and addresses:
+
+```powershell
+.\MemoryScanner.exe <PID> <VTL0_addr> <VTL1_addr>
+```
+
+Notes:
+- Building the solution with `msbuild` will normally handle the enclave generation and packaging steps. Manual `cl.exe` compilation is supported for quick testing of `NormalApp.exe` and `MemoryScanner.exe`.
+- Naming: compile `attacker.c` with `/Fe:MemoryScanner.exe` so the binary matches the README examples.
 
 ## Running the PoC
 

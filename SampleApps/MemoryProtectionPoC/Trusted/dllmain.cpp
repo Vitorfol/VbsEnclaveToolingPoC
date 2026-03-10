@@ -65,18 +65,3 @@ BOOL WINAPI DllMain(HINSTANCE, DWORD reason, LPVOID)
     }
     return TRUE;
 }
-
-// Simple test data in VTL1 (enclave memory)
-static wchar_t g_secretData[] = L"SECRET_IN_VTL1_PROTECTED";
-
-// Returns the address of secret data in VTL1
-extern "C" __declspec(dllexport) uint64_t GetSecretAddress()
-{
-    return (uint64_t)&g_secretData;
-}
-
-// Returns a copy of the secret (proves it's there)
-extern "C" __declspec(dllexport) const wchar_t* GetSecretData()
-{
-    return g_secretData;
-}
