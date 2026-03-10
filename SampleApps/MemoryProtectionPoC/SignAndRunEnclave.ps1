@@ -14,7 +14,7 @@ Write-Host " VBS Enclave - Sign and Run Script" -ForegroundColor Cyan
 Write-Host "=====================================" -ForegroundColor Cyan
 Write-Host ""
 
-$# 1. Locate Windows SDK tools
+# 1. Locate Windows SDK tools
 Write-Host "[1/6] Locating Windows SDK tools..." -ForegroundColor Yellow
 $sdkPath = "C:\Program Files (x86)\Windows Kits\10\bin"
 $versions = Get-ChildItem $sdkPath | Where-Object { $_.Name -match '10\.0\.' } | Sort-Object Name -Descending
