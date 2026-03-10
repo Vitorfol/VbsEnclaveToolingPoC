@@ -11,7 +11,8 @@
 #include <windows.h>
 
 // Public data in VTL0 - THIS SHOULD BE READABLE by attacker
-wchar_t g_public_data[] = L"PUBLIC_DATA_READABLE_123456";
+// Using volatile to prevent compiler optimizations and ensure it stays in memory
+volatile wchar_t g_public_data[] = L"PUBLIC_DATA_READABLE_123456";
 
 int main()
 {
@@ -19,10 +20,22 @@ int main()
     std::wcout << std::endl;
 
     /******************************* Public Data Info *******************************/
-    
+
+    // Use VirtualAlloc to ensure memory is committed and readable
+    const wchar_t publicString[] = L"PUBLIC_DATA_READABLE_123456_HEAP";
+    wchar_t* heapPublicData = (wchar_t*)VirtualAlloc(NULL, 4096, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+    if (heapPublicData != NULL) {
+        wcscpy_s(heapPublicData, 64, publicString);
+        // Touch the memory to ensure it's committed
+        heapPublicData[0] = heapPublicData[0];
+    }
+
     std::wcout << L"[VTL0] Process ID: " << GetCurrentProcessId() << std::endl;
-    std::wcout << L"[VTL0] Public data address: 0x" << std::hex << (uint64_t)&g_public_data << std::dec << std::endl;
-    std::wcout << L"[VTL0] Public data content: " << g_public_data << std::endl;
+    std::wcout << L"[VTL0] Public data (global) address: 0x" << std::hex << (uint64_t)&g_public_data << std::dec << std::endl;
+    if (heapPublicData) {
+        std::wcout << L"[VTL0] Public data (VirtualAlloc) address: 0x" << std::hex << (uint64_t)heapPublicData << std::dec << std::endl;
+        std::wcout << L"[VTL0] Public data content: " << heapPublicData << std::endl;
+    }
     std::wcout << std::endl;
 
     /******************************* Enclave Setup *******************************/
@@ -84,13 +97,15 @@ int main()
         std::wcout << L"======================================" << std::endl;
         std::wcout << std::endl;
         std::wcout << L"Run the memory scanner in another terminal:" << std::endl;
-        std::wcout << L"  MemoryScanner.exe " << GetCurrentProcessId() 
-                   << L" 0x" << std::hex << (uint64_t)&g_public_data 
-                   << L" 0x" << secretAddress << std::dec << std::endl;
-        std::wcout << std::endl;
-        std::wcout << L"Expected results:" << std::endl;
-        std::wcout << L"  - VTL0 address: Scanner WILL read: \"" << g_public_data << L"\"" << std::endl;
-        std::wcout << L"  - VTL1 address: Scanner CANNOT read (protected by VBS)" << std::endl;
+        if (heapPublicData) {
+            std::wcout << L"  MemoryScanner.exe " << GetCurrentProcessId() 
+                       << L" 0x" << std::hex << (uint64_t)heapPublicData 
+                       << L" 0x" << secretAddress << std::dec << std::endl;
+            std::wcout << std::endl;
+            std::wcout << L"Expected results:" << std::endl;
+            std::wcout << L"  - VTL0 address (VirtualAlloc): Scanner WILL read: \"" << heapPublicData << L"\"" << std::endl;
+            std::wcout << L"  - VTL1 address: Scanner CANNOT read (protected by VBS)" << std::endl;
+        }
         std::wcout << std::endl;
         std::wcout << L"Press Ctrl+C to exit..." << std::endl;
 
