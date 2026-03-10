@@ -28,12 +28,11 @@
 #define POC_ENCLAVE_MAX_THREADS 4
 #endif
 
-constexpr int EnclavePolicy_EnableDebuggingForDebugBuildsOnly
-{
 #ifdef _DEBUG
-        IMAGE_ENCLAVE_POLICY_DEBUGGABLE
+constexpr int EnclavePolicy_EnableDebuggingForDebugBuildsOnly = IMAGE_ENCLAVE_POLICY_DEBUGGABLE;
+#else
+constexpr int EnclavePolicy_EnableDebuggingForDebugBuildsOnly = 0;
 #endif
-};
 
 // VBS enclave configuration - included statically
 extern "C" const IMAGE_ENCLAVE_CONFIG __enclave_config = {

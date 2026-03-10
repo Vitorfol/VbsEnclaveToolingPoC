@@ -34,16 +34,13 @@ int main()
         auto ownerId = veil::vtl0::appmodel::owner_id();
 
         // Load enclave with debug flag for Debug builds
-        constexpr int EnclaveCreate_Flags{
-        #ifdef _DEBUG
-            ENCLAVE_VBS_FLAG_DEBUG
-        #endif
-        };
-
-        #ifndef _DEBUG
+#ifdef _DEBUG
+        constexpr int EnclaveCreate_Flags = ENCLAVE_VBS_FLAG_DEBUG;
+#else
+        constexpr int EnclaveCreate_Flags = 0;
         static_assert((EnclaveCreate_Flags & ENCLAVE_VBS_FLAG_DEBUG) == 0, 
                       "ERROR: Do not use _DEBUG flag for retail builds");
-        #endif
+#endif
 
         // Memory allocation must match enclave configuration (512MB)
         auto enclave = veil::vtl0::enclave::create(
