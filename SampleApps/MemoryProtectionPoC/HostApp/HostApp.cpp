@@ -50,7 +50,7 @@ int main()
         std::wcout << L"========================================" << std::endl;
         std::wcout << L"Test with MemoryScanner:" << std::endl;
         std::wcout << L"========================================" << std::endl;
-        std::wcout << L"  .\MemoryScanner.exe " << GetCurrentProcessId() 
+        std::wcout << L"  MemoryScanner.exe " << GetCurrentProcessId() 
                    << L" 0x" << std::hex << secretAddress << std::dec << L"\n" << std::endl;
         std::wcout << L"Press Ctrl+C to exit...\n" << std::endl;
 
