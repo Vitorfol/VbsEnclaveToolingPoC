@@ -4,6 +4,9 @@ Generated Files/
 # Build outputs
 bin/
 obj/
+_build/
+HostApp/_build/
+Trusted/_build/
 *.user
 *.suo
 *.sln.docstates
