@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <filesystem>
+#include <span>
 #include <string>
 #include <vector>
 
@@ -13,26 +14,17 @@ namespace storagepoc::host
 struct StorageArtifactPaths
 {
     std::filesystem::path protectedKeyBlobPath;
-    std::filesystem::path payloadCiphertextPath;
-    std::filesystem::path payloadTagPath;
-    std::filesystem::path payloadMetadataPath;
-    std::filesystem::path setupMetadataPath;
+    std::filesystem::path encryptedDataPath;
 };
 
 HRESULT RunSetupFlow(
     _In_ void* enclave,
     _In_ const StorageArtifactPaths& paths,
+    _In_ std::span<const uint8_t> initialPayload,
     _In_ veil::vtl0::logger::logger& log);
 
-HRESULT RunPostSetupEncryptFlow(
+HRESULT RunPostSetupProcessFlow(
     _In_ void* enclave,
     _In_ const StorageArtifactPaths& paths,
-    _In_ std::span<const uint8_t> plaintextPayload,
-    _In_ veil::vtl0::logger::logger& log);
-
-HRESULT RunPostSetupDecryptFlow(
-    _In_ void* enclave,
-    _In_ const StorageArtifactPaths& paths,
-    _Out_ std::vector<uint8_t>& plaintextPayload,
     _In_ veil::vtl0::logger::logger& log);
 }

@@ -1,7 +1,9 @@
 #include <iostream>
 #include <filesystem>
+#include <cstdlib>
 #include <limits>
 #include <string>
+#include <vector>
 
 #include <wil/result_macros.h>
 
@@ -17,11 +19,8 @@ namespace
 storagepoc::host::StorageArtifactPaths BuildDefaultPaths(_In_ const fs::path& root)
 {
 	return {
-		root / "protected_key_material.bin",
-		root / "payload_ciphertext.bin",
-		root / "payload_tag.bin",
-		root / "payload_metadata.bin",
-		root / "setup_metadata.bin",
+		root / "blob.txt",
+		root / "data.txt",
 	};
 }
 
@@ -40,14 +39,15 @@ std::wstring FromUtf8Bytes(_In_ std::span<const uint8_t> data)
 
 int main(int argc, char* argv[])
 {
-	if (argc > 2)
+	if (argc > 3)
 	{
-		std::cerr << "Usage: " << argv[0] << " <logging_level>" << std::endl;
+		std::cerr << "Usage: " << argv[0] << " <logging_level> [storage_dir]" << std::endl;
 		std::cerr << "Logging levels: 1 - Critical, 2 - Error, 3 - Warning, 4 - Info, 5 - Verbose" << std::endl;
 		return 1;
 	}
 
 	uint32_t activityLevel = (argc == 2) ? static_cast<uint32_t>(std::atoi(argv[1])) : 4;
+	fs::path storageRoot = (argc == 3) ? fs::path(argv[2]) : fs::current_path();
 
 	veil::vtl0::logger::logger veilLog(
 		L"StoragePoCHostApp",
@@ -62,14 +62,27 @@ int main(int argc, char* argv[])
 	veil::vtl0::enclave::initialize(enclave.get(), 2);
 	veil::vtl0::enclave_api::register_callbacks(enclave.get());
 
-	auto paths = BuildDefaultPaths(fs::current_path());
+	{
+		auto enclaveInterface = VbsEnclave::Trusted::Stubs::SampleEnclave(enclave.get());
+		THROW_IF_FAILED(enclaveInterface.RegisterVtl0Callbacks());
+
+		std::vector<uint8_t> mrenclaveHashMaterial;
+		THROW_IF_FAILED(enclaveInterface.StoragePocCommon_GetMrenclaveHash(
+			static_cast<uint32_t>(veilLog.GetLogLevel()),
+			veilLog.GetLogFilePath(),
+			mrenclaveHashMaterial));
+
+		std::wcout << L"MRENCLAVE hash material size: " << mrenclaveHashMaterial.size() << std::endl;
+	}
+
+	auto paths = BuildDefaultPaths(storageRoot);
 
 	while (true)
 	{
 		std::cout << "\n*** Storage PoC Menu ***\n";
-		std::cout << "1. Setup (provision key material S)\n";
-		std::cout << "2. Post-setup Encrypt and Persist\n";
-		std::cout << "3. Post-setup Load and Decrypt\n";
+		std::cout << "1. Setup (one-time): create blob.txt + data.txt\n";
+		std::cout << "2. Post-setup: load, process in enclave, re-encrypt and persist\n";
+		std::cout << "3. Show storage paths\n";
 		std::cout << "4. Exit\n";
 		std::cout << "Enter your choice: ";
 
@@ -86,26 +99,24 @@ int main(int argc, char* argv[])
 		{
 			if (choice == 1)
 			{
-				THROW_IF_FAILED(storagepoc::host::RunSetupFlow(enclave.get(), paths, veilLog));
-				std::wcout << L"Setup finalizado. Blob protegido de S persistido em disco." << std::endl;
-			}
-			else if (choice == 2)
-			{
-				std::wcout << L"Digite o payload para criptografar: ";
+				std::wcout << L"Digite o payload inicial para setup: ";
 				std::wcin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
 				std::wstring input;
 				std::getline(std::wcin, input);
 
 				auto payload = ToUtf8Bytes(input);
-				THROW_IF_FAILED(storagepoc::host::RunPostSetupEncryptFlow(enclave.get(), paths, payload, veilLog));
-				std::wcout << L"Encrypt pos-setup finalizado. Ciphertext persistido em disco." << std::endl;
+				THROW_IF_FAILED(storagepoc::host::RunSetupFlow(enclave.get(), paths, payload, veilLog));
+				std::wcout << L"Setup finalizado. Arquivos blob.txt e data.txt criados." << std::endl;
+			}
+			else if (choice == 2)
+			{
+				THROW_IF_FAILED(storagepoc::host::RunPostSetupProcessFlow(enclave.get(), paths, veilLog));
+				std::wcout << L"Pos-setup finalizado. data.txt sobrescrito com novo payload criptografado." << std::endl;
 			}
 			else if (choice == 3)
 			{
-				std::vector<uint8_t> plaintext;
-				THROW_IF_FAILED(storagepoc::host::RunPostSetupDecryptFlow(enclave.get(), paths, plaintext, veilLog));
-				auto decoded = FromUtf8Bytes(plaintext);
-				std::wcout << L"Decrypt pos-setup finalizado. Payload recuperado: " << decoded << std::endl;
+				std::wcout << L"blob: " << paths.protectedKeyBlobPath.wstring() << std::endl;
+				std::wcout << L"data: " << paths.encryptedDataPath.wstring() << std::endl;
 			}
 			else if (choice == 4)
 			{

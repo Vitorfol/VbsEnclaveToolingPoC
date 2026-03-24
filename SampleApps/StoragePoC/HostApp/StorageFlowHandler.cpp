@@ -1,6 +1,8 @@
 #include "StorageFlowHandler.h"
 
+#include <cstring>
 #include <fstream>
+#include <filesystem>
 
 #include <wil/result_macros.h>
 
@@ -10,6 +12,31 @@ namespace storagepoc::host
 {
 namespace
 {
+struct EncryptedDataEnvelope
+{
+    std::vector<uint8_t> ciphertext;
+    std::vector<uint8_t> tag;
+    std::vector<uint8_t> metadata;
+};
+
+constexpr uint32_t kEnvelopeVersion = 1;
+
+void AppendUint32(_Inout_ std::vector<uint8_t>& target, _In_ uint32_t value)
+{
+    auto p = reinterpret_cast<const uint8_t*>(&value);
+    target.insert(target.end(), p, p + sizeof(value));
+}
+
+uint32_t ReadUint32(_In_ const std::vector<uint8_t>& source, _Inout_ size_t& offset)
+{
+    THROW_HR_IF(E_INVALIDARG, offset + sizeof(uint32_t) > source.size());
+
+    uint32_t value = 0;
+    std::memcpy(&value, source.data() + offset, sizeof(uint32_t));
+    offset += sizeof(uint32_t);
+    return value;
+}
+
 std::vector<uint8_t> LoadBinaryData(_In_ const std::filesystem::path& filePath)
 {
     std::ifstream input(filePath, std::ios::binary);
@@ -46,15 +73,63 @@ void SaveIfNotEmpty(_In_ const std::filesystem::path& filePath, _In_ std::span<c
         SaveBinaryData(filePath, data);
     }
 }
+
+std::vector<uint8_t> SerializeEnvelope(_In_ const EncryptedDataEnvelope& envelope)
+{
+    std::vector<uint8_t> serialized;
+    serialized.reserve(
+        sizeof(uint32_t) * 4 +
+        envelope.ciphertext.size() +
+        envelope.tag.size() +
+        envelope.metadata.size());
+
+    AppendUint32(serialized, kEnvelopeVersion);
+    AppendUint32(serialized, static_cast<uint32_t>(envelope.ciphertext.size()));
+    AppendUint32(serialized, static_cast<uint32_t>(envelope.tag.size()));
+    AppendUint32(serialized, static_cast<uint32_t>(envelope.metadata.size()));
+
+    serialized.insert(serialized.end(), envelope.ciphertext.begin(), envelope.ciphertext.end());
+    serialized.insert(serialized.end(), envelope.tag.begin(), envelope.tag.end());
+    serialized.insert(serialized.end(), envelope.metadata.begin(), envelope.metadata.end());
+
+    return serialized;
+}
+
+EncryptedDataEnvelope DeserializeEnvelope(_In_ const std::vector<uint8_t>& serialized)
+{
+    size_t offset = 0;
+    auto version = ReadUint32(serialized, offset);
+    THROW_HR_IF(E_NOTIMPL, version != kEnvelopeVersion);
+
+    auto ciphertextSize = ReadUint32(serialized, offset);
+    auto tagSize = ReadUint32(serialized, offset);
+    auto metadataSize = ReadUint32(serialized, offset);
+
+    size_t expectedSize = offset + ciphertextSize + tagSize + metadataSize;
+    THROW_HR_IF(E_INVALIDARG, expectedSize != serialized.size());
+
+    EncryptedDataEnvelope envelope;
+    envelope.ciphertext.assign(serialized.begin() + offset, serialized.begin() + offset + ciphertextSize);
+    offset += ciphertextSize;
+    envelope.tag.assign(serialized.begin() + offset, serialized.begin() + offset + tagSize);
+    offset += tagSize;
+    envelope.metadata.assign(serialized.begin() + offset, serialized.begin() + offset + metadataSize);
+    return envelope;
+}
 } // namespace
 
 HRESULT RunSetupFlow(
     _In_ void* enclave,
     _In_ const StorageArtifactPaths& paths,
+    _In_ std::span<const uint8_t> initialPayload,
     _In_ veil::vtl0::logger::logger& log)
 {
     try
     {
+        // Setup is allowed only once for the selected persistence path.
+        THROW_HR_IF(HRESULT_FROM_WIN32(ERROR_ALREADY_EXISTS),
+            std::filesystem::exists(paths.protectedKeyBlobPath) || std::filesystem::exists(paths.encryptedDataPath));
+
         auto enclaveInterface = VbsEnclave::Trusted::Stubs::SampleEnclave(enclave);
         THROW_IF_FAILED(enclaveInterface.RegisterVtl0Callbacks());
 
@@ -67,37 +142,11 @@ HRESULT RunSetupFlow(
             protectedKeyBlob,
             setupMetadata));
 
-        SaveBinaryData(paths.protectedKeyBlobPath, protectedKeyBlob);
-        SaveBinaryData(paths.setupMetadataPath, setupMetadata);
-
-        log.AddTimestampedLog(
-            L"[Host] Setup flow completed. Protected key blob persisted.",
-            veil::any::logger::eventLevel::EVENT_LEVEL_INFO);
-
-        return S_OK;
-    }
-    CATCH_RETURN();
-}
-
-HRESULT RunPostSetupEncryptFlow(
-    _In_ void* enclave,
-    _In_ const StorageArtifactPaths& paths,
-    _In_ std::span<const uint8_t> plaintextPayload,
-    _In_ veil::vtl0::logger::logger& log)
-{
-    try
-    {
-        auto enclaveInterface = VbsEnclave::Trusted::Stubs::SampleEnclave(enclave);
-        THROW_IF_FAILED(enclaveInterface.RegisterVtl0Callbacks());
-
-        auto protectedKeyBlob = LoadBinaryData(paths.protectedKeyBlobPath);
-
         std::vector<uint8_t> maybeResealedKeyBlob;
         std::vector<uint8_t> ciphertextPayload;
         std::vector<uint8_t> payloadTag;
         std::vector<uint8_t> payloadMetadata;
-
-        std::vector<uint8_t> plaintext(plaintextPayload.begin(), plaintextPayload.end());
+        std::vector<uint8_t> plaintext(initialPayload.begin(), initialPayload.end());
 
         THROW_IF_FAILED(enclaveInterface.StoragePocPostSetup_EncryptPayload(
             protectedKeyBlob,
@@ -109,13 +158,26 @@ HRESULT RunPostSetupEncryptFlow(
             payloadTag,
             payloadMetadata));
 
-        SaveIfNotEmpty(paths.protectedKeyBlobPath, maybeResealedKeyBlob);
-        SaveBinaryData(paths.payloadCiphertextPath, ciphertextPayload);
-        SaveBinaryData(paths.payloadTagPath, payloadTag);
-        SaveBinaryData(paths.payloadMetadataPath, payloadMetadata);
+        if (!maybeResealedKeyBlob.empty())
+        {
+            protectedKeyBlob = std::move(maybeResealedKeyBlob);
+        }
+
+        EncryptedDataEnvelope envelope;
+        envelope.ciphertext = std::move(ciphertextPayload);
+        envelope.tag = std::move(payloadTag);
+        envelope.metadata = std::move(payloadMetadata);
+
+        auto serializedData = SerializeEnvelope(envelope);
+
+        SaveBinaryData(paths.protectedKeyBlobPath, protectedKeyBlob);
+        SaveBinaryData(paths.encryptedDataPath, serializedData);
+
+        (void)setupMetadata;
+        // TODO(storage-poc): Persist setup metadata when schema is finalized.
 
         log.AddTimestampedLog(
-            L"[Host] Post-setup encrypt flow completed. Ciphertext persisted.",
+            L"[Host] Setup flow completed. blob.txt and data.txt persisted.",
             veil::any::logger::eventLevel::EVENT_LEVEL_INFO);
 
         return S_OK;
@@ -123,10 +185,9 @@ HRESULT RunPostSetupEncryptFlow(
     CATCH_RETURN();
 }
 
-HRESULT RunPostSetupDecryptFlow(
+HRESULT RunPostSetupProcessFlow(
     _In_ void* enclave,
     _In_ const StorageArtifactPaths& paths,
-    _Out_ std::vector<uint8_t>& plaintextPayload,
     _In_ veil::vtl0::logger::logger& log)
 {
     try
@@ -135,26 +196,37 @@ HRESULT RunPostSetupDecryptFlow(
         THROW_IF_FAILED(enclaveInterface.RegisterVtl0Callbacks());
 
         auto protectedKeyBlob = LoadBinaryData(paths.protectedKeyBlobPath);
-        auto ciphertextPayload = LoadBinaryData(paths.payloadCiphertextPath);
-        auto payloadTag = LoadBinaryData(paths.payloadTagPath);
-        auto payloadMetadata = LoadBinaryData(paths.payloadMetadataPath);
+        auto serializedData = LoadBinaryData(paths.encryptedDataPath);
+        auto envelope = DeserializeEnvelope(serializedData);
 
         std::vector<uint8_t> maybeResealedKeyBlob;
+        std::vector<uint8_t> updatedCiphertext;
+        std::vector<uint8_t> updatedTag;
+        std::vector<uint8_t> updatedMetadata;
 
-        THROW_IF_FAILED(enclaveInterface.StoragePocPostSetup_DecryptPayload(
+        THROW_IF_FAILED(enclaveInterface.StoragePocPostSetup_ProcessAndReencryptPayload(
             protectedKeyBlob,
-            ciphertextPayload,
-            payloadTag,
-            payloadMetadata,
+            envelope.ciphertext,
+            envelope.tag,
+            envelope.metadata,
             static_cast<uint32_t>(log.GetLogLevel()),
             log.GetLogFilePath(),
             maybeResealedKeyBlob,
-            plaintextPayload));
+            updatedCiphertext,
+            updatedTag,
+            updatedMetadata));
 
         SaveIfNotEmpty(paths.protectedKeyBlobPath, maybeResealedKeyBlob);
 
+        EncryptedDataEnvelope updatedEnvelope;
+        updatedEnvelope.ciphertext = std::move(updatedCiphertext);
+        updatedEnvelope.tag = std::move(updatedTag);
+        updatedEnvelope.metadata = std::move(updatedMetadata);
+        auto updatedSerializedData = SerializeEnvelope(updatedEnvelope);
+        SaveBinaryData(paths.encryptedDataPath, updatedSerializedData);
+
         log.AddTimestampedLog(
-            L"[Host] Post-setup decrypt flow completed.",
+            L"[Host] Post-setup process flow completed. data.txt overwritten.",
             veil::any::logger::eventLevel::EVENT_LEVEL_INFO);
 
         return S_OK;

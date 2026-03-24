@@ -1,6 +1,7 @@
 #include "pch.h"
 
 #include "storage_setup.h"
+#include "utils.h"
 
 #include <veil/enclave/crypto.vtl1.h>
 
@@ -17,17 +18,19 @@ HRESULT ProvisionProtectedKeyMaterial(
         // Step 1: Generate symmetric key S inside VTL1.
         auto symmetricKeyBytes = veil::vtl1::crypto::generate_symmetric_key_bytes();
 
-        // Step 2: Protect S for VTL0 persistence.
-        // TODO(storage-poc): Replace direct enclave seal with KDF-derived sealkey flow.
-        auto sealed = veil::vtl1::crypto::seal_data(
-            symmetricKeyBytes,
-            ENCLAVE_IDENTITY_POLICY_SEAL_SAME_IMAGE,
-            0);
+        // Step 2: Derive seal key K from mrenclave material.
+        auto mrenclaveHash = storagepoc::trusted::utils::ComputeMrenclaveHashMaterial();
+        auto sealKeyBytes = storagepoc::trusted::utils::DeriveSealKeyFromMrenclave(mrenclaveHash);
 
-        protectedKeyMaterialBlob.assign(sealed.begin(), sealed.end());
+        // Step 3: Encrypt S with K and return opaque blob to VTL0 for persistence.
+        auto wrappedKeyBlob = storagepoc::trusted::utils::EncryptSymmetricKeyWithSealKey(
+            symmetricKeyBytes,
+            sealKeyBytes);
+        protectedKeyMaterialBlob.assign(wrappedKeyBlob.begin(), wrappedKeyBlob.end());
 
         // TODO(storage-poc): Define setup metadata schema and versioning strategy.
-        setupMetadataBlob = {'S', 'P', 'O', 'C', 'v', '1'};
+        // For now expose mrenclave hash bytes as setup metadata to aid flow verification.
+        setupMetadataBlob = mrenclaveHash;
 
         return S_OK;
     }

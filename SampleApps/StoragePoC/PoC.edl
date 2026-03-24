@@ -2,6 +2,13 @@ enclave
 {
 	trusted
 	{
+		// Common phase: obtain MRENCLAVE-derived hash material for diagnostics and flow verification.
+		HRESULT StoragePocCommon_GetMrenclaveHash(
+			uint32_t activity_level,
+			wstring log_file_path,
+			[out] vector<uint8_t> mrenclave_hash_material
+			);
+
 		// Setup phase: provision key material S in VTL1 and return protected blob for VTL0 persistence.
 		HRESULT StoragePocSetup_ProvisionKeyMaterial(
 			uint32_t activity_level,
@@ -32,6 +39,20 @@ enclave
 			wstring log_file_path,
 			[out] vector<uint8_t> maybe_resealed_key_material_blob,
 			[out] vector<uint8_t> plaintext_payload
+			);
+
+		// Post-setup cycle: decrypt data with S, apply enclave-only processing, re-encrypt with S.
+		HRESULT StoragePocPostSetup_ProcessAndReencryptPayload(
+			vector<uint8_t> protected_key_material_blob,
+			vector<uint8_t> ciphertext_payload,
+			vector<uint8_t> payload_tag,
+			vector<uint8_t> payload_metadata_blob,
+			uint32_t activity_level,
+			wstring log_file_path,
+			[out] vector<uint8_t> maybe_resealed_key_material_blob,
+			[out] vector<uint8_t> updated_ciphertext_payload,
+			[out] vector<uint8_t> updated_payload_tag,
+			[out] vector<uint8_t> updated_payload_metadata_blob
 			);
 	};
 };

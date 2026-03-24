@@ -1,6 +1,7 @@
 #include "pch.h"
 
 #include "storage_post_setup.h"
+#include "utils.h"
 
 #include <veil/enclave/crypto.vtl1.h>
 
@@ -12,19 +13,22 @@ wil::secure_vector<uint8_t> LoadSymmetricKeyBytes(
     _In_ const std::vector<uint8_t>& protectedKeyMaterialBlob,
     _Out_ std::vector<uint8_t>& maybeResealedKeyMaterialBlob)
 {
-    auto [unsealedKey, unsealingFlags] = veil::vtl1::crypto::unseal_data(protectedKeyMaterialBlob);
+    auto mrenclaveHash = storagepoc::trusted::utils::ComputeMrenclaveHashMaterial();
+    auto sealKeyBytes = storagepoc::trusted::utils::DeriveSealKeyFromMrenclave(mrenclaveHash);
+    auto keyBytes = storagepoc::trusted::utils::DecryptSymmetricKeyWithSealKey(
+        protectedKeyMaterialBlob,
+        sealKeyBytes);
 
-    // TODO(storage-poc): Handle stale key policy explicitly and reseal as needed.
-    if ((unsealingFlags & ENCLAVE_UNSEAL_FLAG_STALE_KEY) != 0)
-    {
-        auto resealed = veil::vtl1::crypto::seal_data(
-            unsealedKey,
-            ENCLAVE_IDENTITY_POLICY_SEAL_SAME_IMAGE,
-            0);
-        maybeResealedKeyMaterialBlob.assign(resealed.begin(), resealed.end());
-    }
+    (void)maybeResealedKeyMaterialBlob;
+    // TODO(storage-poc): Define key-rotation/reseal policy for wrapped S blobs.
 
-    return unsealedKey;
+    return keyBytes;
+}
+
+std::vector<uint8_t> ApplyBusinessOperation(_In_ std::span<const uint8_t> plaintext)
+{
+    // TODO(storage-poc): Implement domain-specific data manipulation in VTL1.
+    return std::vector<uint8_t>(plaintext.begin(), plaintext.end());
 }
 } // namespace
 
@@ -85,6 +89,54 @@ HRESULT DecryptPayload(
             payloadTag);
 
         plaintextPayload.assign(plaintext.begin(), plaintext.end());
+        return S_OK;
+    }
+    CATCH_RETURN();
+}
+
+HRESULT ProcessAndReencryptPayload(
+    _In_ const std::vector<uint8_t>& protectedKeyMaterialBlob,
+    _In_ const std::vector<uint8_t>& ciphertextPayload,
+    _In_ const std::vector<uint8_t>& payloadTag,
+    _In_ const std::vector<uint8_t>& payloadMetadataBlob,
+    _In_ uint32_t activityLevel,
+    _In_ const std::wstring& logFilePath,
+    _Out_ std::vector<uint8_t>& maybeResealedKeyMaterialBlob,
+    _Out_ std::vector<uint8_t>& updatedCiphertextPayload,
+    _Out_ std::vector<uint8_t>& updatedPayloadTag,
+    _Out_ std::vector<uint8_t>& updatedPayloadMetadataBlob)
+{
+    try
+    {
+        std::vector<uint8_t> plaintext;
+        RETURN_IF_FAILED(DecryptPayload(
+            protectedKeyMaterialBlob,
+            ciphertextPayload,
+            payloadTag,
+            payloadMetadataBlob,
+            activityLevel,
+            logFilePath,
+            maybeResealedKeyMaterialBlob,
+            plaintext));
+
+        auto processedPlaintext = ApplyBusinessOperation(plaintext);
+
+        std::vector<uint8_t> resealFromEncrypt;
+        RETURN_IF_FAILED(EncryptPayload(
+            protectedKeyMaterialBlob,
+            processedPlaintext,
+            activityLevel,
+            logFilePath,
+            resealFromEncrypt,
+            updatedCiphertextPayload,
+            updatedPayloadTag,
+            updatedPayloadMetadataBlob));
+
+        if (maybeResealedKeyMaterialBlob.empty() && !resealFromEncrypt.empty())
+        {
+            maybeResealedKeyMaterialBlob = std::move(resealFromEncrypt);
+        }
+
         return S_OK;
     }
     CATCH_RETURN();
