@@ -1,0 +1,37 @@
+enclave
+{
+	trusted
+	{
+		// Setup phase: provision key material S in VTL1 and return protected blob for VTL0 persistence.
+		HRESULT StoragePocSetup_ProvisionKeyMaterial(
+			uint32_t activity_level,
+			wstring log_file_path,
+			[out] vector<uint8_t> protected_key_material_blob,
+			[out] vector<uint8_t> setup_metadata_blob
+			);
+
+		// Post-setup phase: load protected S, encrypt payload in VTL1, and return ciphertext artifacts.
+		HRESULT StoragePocPostSetup_EncryptPayload(
+			vector<uint8_t> protected_key_material_blob,
+			vector<uint8_t> plaintext_payload,
+			uint32_t activity_level,
+			wstring log_file_path,
+			[out] vector<uint8_t> maybe_resealed_key_material_blob,
+			[out] vector<uint8_t> ciphertext_payload,
+			[out] vector<uint8_t> payload_tag,
+			[out] vector<uint8_t> payload_metadata_blob
+			);
+
+		// Post-setup phase: load protected S, decrypt payload in VTL1.
+		HRESULT StoragePocPostSetup_DecryptPayload(
+			vector<uint8_t> protected_key_material_blob,
+			vector<uint8_t> ciphertext_payload,
+			vector<uint8_t> payload_tag,
+			vector<uint8_t> payload_metadata_blob,
+			uint32_t activity_level,
+			wstring log_file_path,
+			[out] vector<uint8_t> maybe_resealed_key_material_blob,
+			[out] vector<uint8_t> plaintext_payload
+			);
+	};
+};
