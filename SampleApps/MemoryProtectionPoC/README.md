@@ -90,6 +90,26 @@ MemoryProtectionPoC/
   ```
   Then reboot.
 
+### Configuration Requirements
+
+- **Hardware & OS Requirements**
+  - **Windows 11 24H2** (build 26100 or later)
+  - **TPM 2.0** enabled in BIOS
+  - **Virtualization** enabled in BIOS (Intel VT-x or AMD-V)
+  - **Memory Integrity** enabled:
+    - Settings → Privacy & Security → Windows Security → Device security → Core isolation → Memory integrity
+
+- **Development Requirements**
+  - **Visual Studio 2022** with:
+    - Desktop development with C++
+    - Windows 11 SDK (10.0.26100 or later)
+    - MSVC v143 toolset
+  - **Test signing enabled** (run as Administrator):
+    ```cmd
+    bcdedit /set testsigning on
+    ```
+    Then reboot.
+
 ## Build and Run
 
 ### Step 1: Build the Solution
