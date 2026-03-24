@@ -50,12 +50,6 @@ wil::secure_vector<uint8_t> LoadSymmetricKeyBytes(
 
     return keyBytes;
 }
-
-std::vector<uint8_t> ApplyBusinessOperation(_In_ std::span<const uint8_t> plaintext)
-{
-    // TODO(storage-poc): Implement domain-specific data manipulation in VTL1.
-    return std::vector<uint8_t>(plaintext.begin(), plaintext.end());
-}
 } // namespace
 
 HRESULT EncryptPayload(
@@ -113,54 +107,6 @@ HRESULT DecryptPayload(
             payloadTag);
 
         plaintextPayload.assign(plaintext.begin(), plaintext.end());
-        return S_OK;
-    }
-    CATCH_RETURN();
-}
-
-HRESULT ProcessAndReencryptPayload(
-    _In_ const std::vector<uint8_t>& protectedKeyMaterialBlob,
-    _In_ const std::vector<uint8_t>& ciphertextPayload,
-    _In_ const std::vector<uint8_t>& payloadTag,
-    _In_ const std::vector<uint8_t>& payloadMetadataBlob,
-    _In_ uint32_t activityLevel,
-    _In_ const std::wstring& logFilePath,
-    _Out_ std::vector<uint8_t>& maybeResealedKeyMaterialBlob,
-    _Out_ std::vector<uint8_t>& updatedCiphertextPayload,
-    _Out_ std::vector<uint8_t>& updatedPayloadTag,
-    _Out_ std::vector<uint8_t>& updatedPayloadMetadataBlob)
-{
-    try
-    {
-        std::vector<uint8_t> plaintext;
-        RETURN_IF_FAILED(DecryptPayload(
-            protectedKeyMaterialBlob,
-            ciphertextPayload,
-            payloadTag,
-            payloadMetadataBlob,
-            activityLevel,
-            logFilePath,
-            maybeResealedKeyMaterialBlob,
-            plaintext));
-
-        auto processedPlaintext = ApplyBusinessOperation(plaintext);
-
-        std::vector<uint8_t> resealFromEncrypt;
-        RETURN_IF_FAILED(EncryptPayload(
-            protectedKeyMaterialBlob,
-            processedPlaintext,
-            activityLevel,
-            logFilePath,
-            resealFromEncrypt,
-            updatedCiphertextPayload,
-            updatedPayloadTag,
-            updatedPayloadMetadataBlob));
-
-        if (maybeResealedKeyMaterialBlob.empty() && !resealFromEncrypt.empty())
-        {
-            maybeResealedKeyMaterialBlob = std::move(resealFromEncrypt);
-        }
-
         return S_OK;
     }
     CATCH_RETURN();

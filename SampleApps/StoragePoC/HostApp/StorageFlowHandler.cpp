@@ -3,7 +3,6 @@
 #include <cstring>
 #include <filesystem>
 #include <fstream>
-#include <sstream>
 #include <string>
 #include <unordered_map>
 
@@ -163,13 +162,11 @@ HRESULT RunSetupFlow(
         THROW_IF_FAILED(enclaveInterface.RegisterVtl0Callbacks());
 
         std::vector<uint8_t> protectedKeyBlob;
-        std::vector<uint8_t> setupMetadata;
 
         THROW_IF_FAILED(enclaveInterface.StoragePocSetup_ProvisionKeyMaterial(
             static_cast<uint32_t>(log.GetLogLevel()),
             log.GetLogFilePath(),
-            protectedKeyBlob,
-            setupMetadata));
+            protectedKeyBlob));
 
         std::vector<uint8_t> maybeResealedKeyBlob;
         std::vector<uint8_t> ciphertextPayload;
@@ -199,9 +196,6 @@ HRESULT RunSetupFlow(
 
         WriteBlobFile(paths.protectedKeyBlobPath, protectedKeyBlob);
         WriteDataFile(paths.encryptedDataPath, envelope);
-
-        (void)setupMetadata;
-        // TODO(storage-poc): Persist setup metadata when schema is finalized.
 
         log.AddTimestampedLog(
             L"[Host] Setup flow completed. blob.txt and data.txt persisted.",

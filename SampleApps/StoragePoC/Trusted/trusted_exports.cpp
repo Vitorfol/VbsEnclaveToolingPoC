@@ -22,14 +22,12 @@ HRESULT StoragePocCommon_GetMrenclaveHash(
 HRESULT StoragePocSetup_ProvisionKeyMaterial(
     _In_ const uint32_t activity_level,
     _In_ const std::wstring& log_file_path,
-    _Out_ std::vector<std::uint8_t>& protected_key_material_blob,
-    _Out_ std::vector<std::uint8_t>& setup_metadata_blob)
+    _Out_ std::vector<std::uint8_t>& protected_key_material_blob)
 {
     return storagepoc::trusted::setup::ProvisionProtectedKeyMaterial(
         activity_level,
         log_file_path,
-        protected_key_material_blob,
-        setup_metadata_blob);
+        protected_key_material_blob);
 }
 
 HRESULT StoragePocPostSetup_EncryptPayload(
@@ -74,28 +72,4 @@ HRESULT StoragePocPostSetup_DecryptPayload(
         plaintext_payload);
 }
 
-HRESULT StoragePocPostSetup_ProcessAndReencryptPayload(
-    _In_ const std::vector<std::uint8_t>& protected_key_material_blob,
-    _In_ const std::vector<std::uint8_t>& ciphertext_payload,
-    _In_ const std::vector<std::uint8_t>& payload_tag,
-    _In_ const std::vector<std::uint8_t>& payload_metadata_blob,
-    _In_ const uint32_t activity_level,
-    _In_ const std::wstring& log_file_path,
-    _Out_ std::vector<std::uint8_t>& maybe_resealed_key_material_blob,
-    _Out_ std::vector<std::uint8_t>& updated_ciphertext_payload,
-    _Out_ std::vector<std::uint8_t>& updated_payload_tag,
-    _Out_ std::vector<std::uint8_t>& updated_payload_metadata_blob)
-{
-    return storagepoc::trusted::post_setup::ProcessAndReencryptPayload(
-        protected_key_material_blob,
-        ciphertext_payload,
-        payload_tag,
-        payload_metadata_blob,
-        activity_level,
-        log_file_path,
-        maybe_resealed_key_material_blob,
-        updated_ciphertext_payload,
-        updated_payload_tag,
-        updated_payload_metadata_blob);
-}
 } // namespace VbsEnclave::Trusted::Implementation

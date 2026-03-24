@@ -10,8 +10,7 @@ namespace storagepoc::trusted::setup
 HRESULT ProvisionProtectedKeyMaterial(
     _In_ uint32_t /*activityLevel*/,
     _In_ const std::wstring& /*logFilePath*/,
-    _Out_ std::vector<uint8_t>& protectedKeyMaterialBlob,
-    _Out_ std::vector<uint8_t>& setupMetadataBlob)
+    _Out_ std::vector<uint8_t>& protectedKeyMaterialBlob)
 {
     try
     {
@@ -26,10 +25,6 @@ HRESULT ProvisionProtectedKeyMaterial(
             symmetricKeyBytes,
             mrenclaveHash);
         protectedKeyMaterialBlob.assign(wrappedKeyBlob.begin(), wrappedKeyBlob.end());
-
-        // TODO(storage-poc): Define setup metadata schema and versioning strategy.
-        // For now expose mrenclave hash bytes as setup metadata to aid flow verification.
-        setupMetadataBlob = mrenclaveHash;
 
         return S_OK;
     }

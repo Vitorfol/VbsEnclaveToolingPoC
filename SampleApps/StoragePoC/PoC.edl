@@ -13,8 +13,7 @@ enclave
 		HRESULT StoragePocSetup_ProvisionKeyMaterial(
 			uint32_t activity_level,
 			wstring log_file_path,
-			[out] vector<uint8_t> protected_key_material_blob,
-			[out] vector<uint8_t> setup_metadata_blob
+			[out] vector<uint8_t> protected_key_material_blob
 			);
 
 		// Post-setup phase: load protected S, encrypt payload in VTL1, and return ciphertext artifacts.
@@ -39,20 +38,6 @@ enclave
 			wstring log_file_path,
 			[out] vector<uint8_t> maybe_resealed_key_material_blob,
 			[out] vector<uint8_t> plaintext_payload
-			);
-
-		// Post-setup cycle: decrypt data with S, apply enclave-only processing, re-encrypt with S.
-		HRESULT StoragePocPostSetup_ProcessAndReencryptPayload(
-			vector<uint8_t> protected_key_material_blob,
-			vector<uint8_t> ciphertext_payload,
-			vector<uint8_t> payload_tag,
-			vector<uint8_t> payload_metadata_blob,
-			uint32_t activity_level,
-			wstring log_file_path,
-			[out] vector<uint8_t> maybe_resealed_key_material_blob,
-			[out] vector<uint8_t> updated_ciphertext_payload,
-			[out] vector<uint8_t> updated_payload_tag,
-			[out] vector<uint8_t> updated_payload_metadata_blob
 			);
 	};
 };
