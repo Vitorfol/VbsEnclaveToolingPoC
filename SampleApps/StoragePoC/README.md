@@ -92,28 +92,44 @@ Reboot after changing this setting.
 
 ## Build (output in _build/x64/Debug)
 
-Use a **Developer Command Prompt for VS 2022** from `SampleApps/StoragePoC`.
+Use a **Developer Command Prompt for VS 2022**.
 
-### Option A - build solution/projects
-
-If you already have StoragePoC solution/project files:
+### Step 1 - go to the PoC folder
 
 ```powershell
-msbuild <StoragePoC.sln or host project> /p:Configuration=Debug /p:Platform=x64 /p:OutDir=_build\x64\Debug\
-msbuild <trusted project> /p:Configuration=Debug /p:Platform=x64 /p:OutDir=_build\x64\Debug\
+cd SampleApps\StoragePoC
 ```
 
-Expected outputs in `_build/x64/Debug`:
+### Step 2 - restore NuGet packages
 
-- Host app (`HostApp.exe`)
-- Enclave DLL (`storagepoc.dll`)
+Recommended:
 
-### Option B - set output directory in Visual Studio
+```powershell
+msbuild StoragePoC.sln /t:Restore /p:Configuration=Debug /p:Platform=x64
+```
 
-Set Output Directory for both Host and Trusted projects to:
+Alternative (if you prefer NuGet CLI):
 
-```text
-$(ProjectDir)..\_build\x64\Debug\
+```powershell
+nuget restore StoragePoC.sln
+```
+
+### Step 3 - build Debug x64
+
+```powershell
+msbuild StoragePoC.sln /p:Configuration=Debug /p:Platform=x64 /p:OutDir=_build\x64\Debug\
+```
+
+Expected outputs in `_build\x64\Debug\`:
+
+- `HostApp.exe`
+- `storagepoc.dll`
+
+### Step 4 - verify build artifacts (optional)
+
+```powershell
+dir .\_build\x64\Debug\HostApp.exe
+dir .\_build\x64\Debug\storagepoc.dll
 ```
 
 ## Enclave Signing
