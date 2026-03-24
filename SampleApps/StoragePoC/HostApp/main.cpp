@@ -1,6 +1,5 @@
 #include <iostream>
 #include <filesystem>
-#include <cstdlib>
 #include <limits>
 #include <string>
 #include <vector>
@@ -39,15 +38,14 @@ std::wstring FromUtf8Bytes(_In_ std::span<const uint8_t> data)
 
 int main(int argc, char* argv[])
 {
-	if (argc > 3)
+	if (argc > 2)
 	{
-		std::cerr << "Usage: " << argv[0] << " <logging_level> [storage_dir]" << std::endl;
-		std::cerr << "Logging levels: 1 - Critical, 2 - Error, 3 - Warning, 4 - Info, 5 - Verbose" << std::endl;
+		std::cerr << "Usage: " << argv[0] << " [storage_dir]" << std::endl;
 		return 1;
 	}
 
-	uint32_t activityLevel = (argc == 2) ? static_cast<uint32_t>(std::atoi(argv[1])) : 4;
-	fs::path storageRoot = (argc == 3) ? fs::path(argv[2]) : fs::current_path();
+	uint32_t activityLevel = 4;
+	fs::path storageRoot = (argc == 2) ? fs::path(argv[1]) : fs::current_path();
 
 	veil::vtl0::logger::logger veilLog(
 		L"StoragePoCHostApp",
@@ -80,16 +78,17 @@ int main(int argc, char* argv[])
 	while (true)
 	{
 		std::cout << "\n*** Storage PoC Menu ***\n";
-		std::cout << "1. Setup (one-time): create blob.txt + data.txt\n";
-		std::cout << "2. Post-setup: load, process in enclave, re-encrypt and persist\n";
-		std::cout << "3. Show storage paths\n";
-		std::cout << "4. Exit\n";
+		std::cout << "1. Setup (one-time): create blob.txt + data.txt with encrypted 'Hello, world'\n";
+		std::cout << "2. Post-setup READ: decrypt data.txt and show plaintext\n";
+		std::cout << "3. Post-setup WRITE/UPDATE: encrypt new text and overwrite data.txt\n";
+		std::cout << "4. Show storage paths\n";
+		std::cout << "5. Exit\n";
 		std::cout << "Enter your choice: ";
 
 		int choice = 0;
 		if (!(std::cin >> choice))
 		{
-			std::cout << "Invalid input. Please enter a valid option (1-4).\n";
+			std::cout << "Invalid input. Please enter a valid option (1-5).\n";
 			std::cin.clear();
 			std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
 			continue;
@@ -99,26 +98,33 @@ int main(int argc, char* argv[])
 		{
 			if (choice == 1)
 			{
-				std::wcout << L"Digite o payload inicial para setup: ";
+				THROW_IF_FAILED(storagepoc::host::RunSetupFlow(enclave.get(), paths, veilLog));
+				std::wcout << L"Setup finalizado. Arquivos blob.txt e data.txt criados." << std::endl;
+			}
+			else if (choice == 2)
+			{
+				std::vector<uint8_t> plaintext;
+				THROW_IF_FAILED(storagepoc::host::RunPostSetupReadFlow(enclave.get(), paths, plaintext, veilLog));
+				auto text = FromUtf8Bytes(plaintext);
+				std::wcout << L"Plaintext atual: " << text << std::endl;
+			}
+			else if (choice == 3)
+			{
+				std::wcout << L"Digite o novo texto para data.txt: ";
 				std::wcin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
 				std::wstring input;
 				std::getline(std::wcin, input);
 
 				auto payload = ToUtf8Bytes(input);
-				THROW_IF_FAILED(storagepoc::host::RunSetupFlow(enclave.get(), paths, payload, veilLog));
-				std::wcout << L"Setup finalizado. Arquivos blob.txt e data.txt criados." << std::endl;
+				THROW_IF_FAILED(storagepoc::host::RunPostSetupWriteFlow(enclave.get(), paths, payload, veilLog));
+				std::wcout << L"Update finalizado. data.txt sobrescrito com novo texto criptografado." << std::endl;
 			}
-			else if (choice == 2)
-			{
-				THROW_IF_FAILED(storagepoc::host::RunPostSetupProcessFlow(enclave.get(), paths, veilLog));
-				std::wcout << L"Pos-setup finalizado. data.txt sobrescrito com novo payload criptografado." << std::endl;
-			}
-			else if (choice == 3)
+			else if (choice == 4)
 			{
 				std::wcout << L"blob: " << paths.protectedKeyBlobPath.wstring() << std::endl;
 				std::wcout << L"data: " << paths.encryptedDataPath.wstring() << std::endl;
 			}
-			else if (choice == 4)
+			else if (choice == 5)
 			{
 				std::cout << "Exiting program...\n";
 				break;

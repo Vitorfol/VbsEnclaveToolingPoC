@@ -14,13 +14,10 @@ wil::secure_vector<uint8_t> LoadSymmetricKeyBytes(
     _Out_ std::vector<uint8_t>& maybeResealedKeyMaterialBlob)
 {
     auto mrenclaveHash = storagepoc::trusted::utils::ComputeMrenclaveHashMaterial();
-    auto sealKeyBytes = storagepoc::trusted::utils::DeriveSealKeyFromMrenclave(mrenclaveHash);
-    auto keyBytes = storagepoc::trusted::utils::DecryptSymmetricKeyWithSealKey(
+    auto keyBytes = storagepoc::trusted::utils::RecoverSymmetricKeyFromProtectedBlob(
         protectedKeyMaterialBlob,
-        sealKeyBytes);
-
-    (void)maybeResealedKeyMaterialBlob;
-    // TODO(storage-poc): Define key-rotation/reseal policy for wrapped S blobs.
+        mrenclaveHash,
+        maybeResealedKeyMaterialBlob);
 
     return keyBytes;
 }

@@ -18,14 +18,13 @@ HRESULT ProvisionProtectedKeyMaterial(
         // Step 1: Generate symmetric key S inside VTL1.
         auto symmetricKeyBytes = veil::vtl1::crypto::generate_symmetric_key_bytes();
 
-        // Step 2: Derive seal key K from mrenclave material.
+        // Step 2: Get mrenclave hash material for explicit binding.
         auto mrenclaveHash = storagepoc::trusted::utils::ComputeMrenclaveHashMaterial();
-        auto sealKeyBytes = storagepoc::trusted::utils::DeriveSealKeyFromMrenclave(mrenclaveHash);
 
-        // Step 3: Encrypt S with K and return opaque blob to VTL0 for persistence.
-        auto wrappedKeyBlob = storagepoc::trusted::utils::EncryptSymmetricKeyWithSealKey(
+        // Step 3: Protect S with hardware-rooted enclave sealing and mrenclave-bound payload.
+        auto wrappedKeyBlob = storagepoc::trusted::utils::CreateProtectedSymmetricKeyBlob(
             symmetricKeyBytes,
-            sealKeyBytes);
+            mrenclaveHash);
         protectedKeyMaterialBlob.assign(wrappedKeyBlob.begin(), wrappedKeyBlob.end());
 
         // TODO(storage-poc): Define setup metadata schema and versioning strategy.

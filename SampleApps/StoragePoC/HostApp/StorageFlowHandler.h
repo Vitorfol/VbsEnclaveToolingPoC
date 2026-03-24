@@ -20,11 +20,17 @@ struct StorageArtifactPaths
 HRESULT RunSetupFlow(
     _In_ void* enclave,
     _In_ const StorageArtifactPaths& paths,
-    _In_ std::span<const uint8_t> initialPayload,
     _In_ veil::vtl0::logger::logger& log);
 
-HRESULT RunPostSetupProcessFlow(
+HRESULT RunPostSetupReadFlow(
     _In_ void* enclave,
     _In_ const StorageArtifactPaths& paths,
+    _Out_ std::vector<uint8_t>& plaintextPayload,
+    _In_ veil::vtl0::logger::logger& log);
+
+HRESULT RunPostSetupWriteFlow(
+    _In_ void* enclave,
+    _In_ const StorageArtifactPaths& paths,
+    _In_ std::span<const uint8_t> plaintextPayload,
     _In_ veil::vtl0::logger::logger& log);
 }

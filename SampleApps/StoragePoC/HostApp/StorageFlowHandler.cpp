@@ -1,8 +1,11 @@
 #include "StorageFlowHandler.h"
 
 #include <cstring>
-#include <fstream>
 #include <filesystem>
+#include <fstream>
+#include <sstream>
+#include <string>
+#include <unordered_map>
 
 #include <wil/result_macros.h>
 
@@ -19,109 +22,135 @@ struct EncryptedDataEnvelope
     std::vector<uint8_t> metadata;
 };
 
-constexpr uint32_t kEnvelopeVersion = 1;
+constexpr std::string_view kBlobFormat = "SPOC_BLOB_V1";
+constexpr std::string_view kDataFormat = "SPOC_DATA_V1";
 
-void AppendUint32(_Inout_ std::vector<uint8_t>& target, _In_ uint32_t value)
+std::string BytesToHex(_In_ std::span<const uint8_t> bytes)
 {
-    auto p = reinterpret_cast<const uint8_t*>(&value);
-    target.insert(target.end(), p, p + sizeof(value));
+    static constexpr char kHex[] = "0123456789ABCDEF";
+    std::string output;
+    output.resize(bytes.size() * 2);
+    for (size_t i = 0; i < bytes.size(); ++i)
+    {
+        output[2 * i] = kHex[(bytes[i] >> 4) & 0x0F];
+        output[2 * i + 1] = kHex[bytes[i] & 0x0F];
+    }
+    return output;
 }
 
-uint32_t ReadUint32(_In_ const std::vector<uint8_t>& source, _Inout_ size_t& offset)
+uint8_t HexNibble(_In_ char ch)
 {
-    THROW_HR_IF(E_INVALIDARG, offset + sizeof(uint32_t) > source.size());
-
-    uint32_t value = 0;
-    std::memcpy(&value, source.data() + offset, sizeof(uint32_t));
-    offset += sizeof(uint32_t);
-    return value;
+    if (ch >= '0' && ch <= '9')
+    {
+        return static_cast<uint8_t>(ch - '0');
+    }
+    if (ch >= 'A' && ch <= 'F')
+    {
+        return static_cast<uint8_t>(10 + ch - 'A');
+    }
+    if (ch >= 'a' && ch <= 'f')
+    {
+        return static_cast<uint8_t>(10 + ch - 'a');
+    }
+    THROW_HR(E_INVALIDARG);
 }
 
-std::vector<uint8_t> LoadBinaryData(_In_ const std::filesystem::path& filePath)
+std::vector<uint8_t> HexToBytes(_In_ const std::string& hex)
 {
-    std::ifstream input(filePath, std::ios::binary);
+    THROW_HR_IF(E_INVALIDARG, (hex.size() % 2) != 0);
+    std::vector<uint8_t> bytes;
+    bytes.reserve(hex.size() / 2);
+    for (size_t i = 0; i < hex.size(); i += 2)
+    {
+        auto high = HexNibble(hex[i]);
+        auto low = HexNibble(hex[i + 1]);
+        bytes.push_back(static_cast<uint8_t>((high << 4) | low));
+    }
+    return bytes;
+}
+
+std::unordered_map<std::string, std::string> ReadKeyValueFile(_In_ const std::filesystem::path& filePath)
+{
+    std::ifstream input(filePath, std::ios::in);
     THROW_HR_IF(HRESULT_FROM_WIN32(ERROR_FILE_NOT_FOUND), !input.good());
 
-    input.seekg(0, std::ios::end);
-    auto size = input.tellg();
-    input.seekg(0, std::ios::beg);
-
-    std::vector<uint8_t> data(static_cast<size_t>(size));
-    if (!data.empty())
+    std::unordered_map<std::string, std::string> kv;
+    std::string line;
+    while (std::getline(input, line))
     {
-        input.read(reinterpret_cast<char*>(data.data()), data.size());
+        if (line.empty())
+        {
+            continue;
+        }
+
+        auto pos = line.find('=');
+        THROW_HR_IF(E_INVALIDARG, pos == std::string::npos);
+
+        auto key = line.substr(0, pos);
+        auto value = line.substr(pos + 1);
+        kv[std::move(key)] = std::move(value);
     }
 
-    return data;
+    return kv;
 }
 
-void SaveBinaryData(_In_ const std::filesystem::path& filePath, _In_ std::span<const uint8_t> data)
+void WriteBlobFile(
+    _In_ const std::filesystem::path& filePath,
+    _In_ std::span<const uint8_t> protectedKeyBlob)
 {
-    std::ofstream output(filePath, std::ios::binary | std::ios::trunc);
+    std::filesystem::create_directories(filePath.parent_path());
+    std::ofstream output(filePath, std::ios::out | std::ios::trunc);
     THROW_HR_IF(E_FAIL, !output.good());
 
-    if (!data.empty())
-    {
-        output.write(reinterpret_cast<const char*>(data.data()), data.size());
-    }
+    output << "format=" << kBlobFormat << "\n";
+    output << "wrapped_s_hex=" << BytesToHex(protectedKeyBlob) << "\n";
 }
 
-void SaveIfNotEmpty(_In_ const std::filesystem::path& filePath, _In_ std::span<const uint8_t> data)
+std::vector<uint8_t> ReadBlobFile(_In_ const std::filesystem::path& filePath)
 {
-    if (!data.empty())
-    {
-        SaveBinaryData(filePath, data);
-    }
+    auto kv = ReadKeyValueFile(filePath);
+    THROW_HR_IF(E_INVALIDARG, kv["format"] != kBlobFormat);
+    return HexToBytes(kv["wrapped_s_hex"]);
 }
 
-std::vector<uint8_t> SerializeEnvelope(_In_ const EncryptedDataEnvelope& envelope)
+void WriteDataFile(
+    _In_ const std::filesystem::path& filePath,
+    _In_ const EncryptedDataEnvelope& envelope)
 {
-    std::vector<uint8_t> serialized;
-    serialized.reserve(
-        sizeof(uint32_t) * 4 +
-        envelope.ciphertext.size() +
-        envelope.tag.size() +
-        envelope.metadata.size());
+    std::filesystem::create_directories(filePath.parent_path());
+    std::ofstream output(filePath, std::ios::out | std::ios::trunc);
+    THROW_HR_IF(E_FAIL, !output.good());
 
-    AppendUint32(serialized, kEnvelopeVersion);
-    AppendUint32(serialized, static_cast<uint32_t>(envelope.ciphertext.size()));
-    AppendUint32(serialized, static_cast<uint32_t>(envelope.tag.size()));
-    AppendUint32(serialized, static_cast<uint32_t>(envelope.metadata.size()));
-
-    serialized.insert(serialized.end(), envelope.ciphertext.begin(), envelope.ciphertext.end());
-    serialized.insert(serialized.end(), envelope.tag.begin(), envelope.tag.end());
-    serialized.insert(serialized.end(), envelope.metadata.begin(), envelope.metadata.end());
-
-    return serialized;
+    output << "format=" << kDataFormat << "\n";
+    output << "ciphertext_hex=" << BytesToHex(envelope.ciphertext) << "\n";
+    output << "tag_hex=" << BytesToHex(envelope.tag) << "\n";
+    output << "metadata_hex=" << BytesToHex(envelope.metadata) << "\n";
 }
 
-EncryptedDataEnvelope DeserializeEnvelope(_In_ const std::vector<uint8_t>& serialized)
+EncryptedDataEnvelope ReadDataFile(_In_ const std::filesystem::path& filePath)
 {
-    size_t offset = 0;
-    auto version = ReadUint32(serialized, offset);
-    THROW_HR_IF(E_NOTIMPL, version != kEnvelopeVersion);
-
-    auto ciphertextSize = ReadUint32(serialized, offset);
-    auto tagSize = ReadUint32(serialized, offset);
-    auto metadataSize = ReadUint32(serialized, offset);
-
-    size_t expectedSize = offset + ciphertextSize + tagSize + metadataSize;
-    THROW_HR_IF(E_INVALIDARG, expectedSize != serialized.size());
+    auto kv = ReadKeyValueFile(filePath);
+    THROW_HR_IF(E_INVALIDARG, kv["format"] != kDataFormat);
 
     EncryptedDataEnvelope envelope;
-    envelope.ciphertext.assign(serialized.begin() + offset, serialized.begin() + offset + ciphertextSize);
-    offset += ciphertextSize;
-    envelope.tag.assign(serialized.begin() + offset, serialized.begin() + offset + tagSize);
-    offset += tagSize;
-    envelope.metadata.assign(serialized.begin() + offset, serialized.begin() + offset + metadataSize);
+    envelope.ciphertext = HexToBytes(kv["ciphertext_hex"]);
+    envelope.tag = HexToBytes(kv["tag_hex"]);
+    envelope.metadata = HexToBytes(kv["metadata_hex"]);
     return envelope;
+}
+
+void SaveBlobIfNotEmpty(_In_ const std::filesystem::path& filePath, _In_ std::span<const uint8_t> blob)
+{
+    if (!blob.empty())
+    {
+        WriteBlobFile(filePath, blob);
+    }
 }
 } // namespace
 
 HRESULT RunSetupFlow(
     _In_ void* enclave,
     _In_ const StorageArtifactPaths& paths,
-    _In_ std::span<const uint8_t> initialPayload,
     _In_ veil::vtl0::logger::logger& log)
 {
     try
@@ -146,7 +175,7 @@ HRESULT RunSetupFlow(
         std::vector<uint8_t> ciphertextPayload;
         std::vector<uint8_t> payloadTag;
         std::vector<uint8_t> payloadMetadata;
-        std::vector<uint8_t> plaintext(initialPayload.begin(), initialPayload.end());
+        std::vector<uint8_t> plaintext {'H', 'e', 'l', 'l', 'o', ',', ' ', 'w', 'o', 'r', 'l', 'd'};
 
         THROW_IF_FAILED(enclaveInterface.StoragePocPostSetup_EncryptPayload(
             protectedKeyBlob,
@@ -168,10 +197,8 @@ HRESULT RunSetupFlow(
         envelope.tag = std::move(payloadTag);
         envelope.metadata = std::move(payloadMetadata);
 
-        auto serializedData = SerializeEnvelope(envelope);
-
-        SaveBinaryData(paths.protectedKeyBlobPath, protectedKeyBlob);
-        SaveBinaryData(paths.encryptedDataPath, serializedData);
+        WriteBlobFile(paths.protectedKeyBlobPath, protectedKeyBlob);
+        WriteDataFile(paths.encryptedDataPath, envelope);
 
         (void)setupMetadata;
         // TODO(storage-poc): Persist setup metadata when schema is finalized.
@@ -185,9 +212,10 @@ HRESULT RunSetupFlow(
     CATCH_RETURN();
 }
 
-HRESULT RunPostSetupProcessFlow(
+HRESULT RunPostSetupReadFlow(
     _In_ void* enclave,
     _In_ const StorageArtifactPaths& paths,
+    _Out_ std::vector<uint8_t>& plaintextPayload,
     _In_ veil::vtl0::logger::logger& log)
 {
     try
@@ -195,16 +223,12 @@ HRESULT RunPostSetupProcessFlow(
         auto enclaveInterface = VbsEnclave::Trusted::Stubs::SampleEnclave(enclave);
         THROW_IF_FAILED(enclaveInterface.RegisterVtl0Callbacks());
 
-        auto protectedKeyBlob = LoadBinaryData(paths.protectedKeyBlobPath);
-        auto serializedData = LoadBinaryData(paths.encryptedDataPath);
-        auto envelope = DeserializeEnvelope(serializedData);
+        auto protectedKeyBlob = ReadBlobFile(paths.protectedKeyBlobPath);
+        auto envelope = ReadDataFile(paths.encryptedDataPath);
 
         std::vector<uint8_t> maybeResealedKeyBlob;
-        std::vector<uint8_t> updatedCiphertext;
-        std::vector<uint8_t> updatedTag;
-        std::vector<uint8_t> updatedMetadata;
 
-        THROW_IF_FAILED(enclaveInterface.StoragePocPostSetup_ProcessAndReencryptPayload(
+        THROW_IF_FAILED(enclaveInterface.StoragePocPostSetup_DecryptPayload(
             protectedKeyBlob,
             envelope.ciphertext,
             envelope.tag,
@@ -212,21 +236,58 @@ HRESULT RunPostSetupProcessFlow(
             static_cast<uint32_t>(log.GetLogLevel()),
             log.GetLogFilePath(),
             maybeResealedKeyBlob,
-            updatedCiphertext,
-            updatedTag,
-            updatedMetadata));
+            plaintextPayload));
 
-        SaveIfNotEmpty(paths.protectedKeyBlobPath, maybeResealedKeyBlob);
-
-        EncryptedDataEnvelope updatedEnvelope;
-        updatedEnvelope.ciphertext = std::move(updatedCiphertext);
-        updatedEnvelope.tag = std::move(updatedTag);
-        updatedEnvelope.metadata = std::move(updatedMetadata);
-        auto updatedSerializedData = SerializeEnvelope(updatedEnvelope);
-        SaveBinaryData(paths.encryptedDataPath, updatedSerializedData);
+        SaveBlobIfNotEmpty(paths.protectedKeyBlobPath, maybeResealedKeyBlob);
 
         log.AddTimestampedLog(
-            L"[Host] Post-setup process flow completed. data.txt overwritten.",
+            L"[Host] Post-setup read flow completed.",
+            veil::any::logger::eventLevel::EVENT_LEVEL_INFO);
+
+        return S_OK;
+    }
+    CATCH_RETURN();
+}
+
+HRESULT RunPostSetupWriteFlow(
+    _In_ void* enclave,
+    _In_ const StorageArtifactPaths& paths,
+    _In_ std::span<const uint8_t> plaintextPayload,
+    _In_ veil::vtl0::logger::logger& log)
+{
+    try
+    {
+        auto enclaveInterface = VbsEnclave::Trusted::Stubs::SampleEnclave(enclave);
+        THROW_IF_FAILED(enclaveInterface.RegisterVtl0Callbacks());
+
+        auto protectedKeyBlob = ReadBlobFile(paths.protectedKeyBlobPath);
+
+        std::vector<uint8_t> maybeResealedKeyBlob;
+        std::vector<uint8_t> ciphertextPayload;
+        std::vector<uint8_t> payloadTag;
+        std::vector<uint8_t> payloadMetadata;
+        std::vector<uint8_t> plaintext(plaintextPayload.begin(), plaintextPayload.end());
+
+        THROW_IF_FAILED(enclaveInterface.StoragePocPostSetup_EncryptPayload(
+            protectedKeyBlob,
+            plaintext,
+            static_cast<uint32_t>(log.GetLogLevel()),
+            log.GetLogFilePath(),
+            maybeResealedKeyBlob,
+            ciphertextPayload,
+            payloadTag,
+            payloadMetadata));
+
+        SaveBlobIfNotEmpty(paths.protectedKeyBlobPath, maybeResealedKeyBlob);
+
+        EncryptedDataEnvelope envelope;
+        envelope.ciphertext = std::move(ciphertextPayload);
+        envelope.tag = std::move(payloadTag);
+        envelope.metadata = std::move(payloadMetadata);
+        WriteDataFile(paths.encryptedDataPath, envelope);
+
+        log.AddTimestampedLog(
+            L"[Host] Post-setup write flow completed. data.txt updated.",
             veil::any::logger::eventLevel::EVENT_LEVEL_INFO);
 
         return S_OK;
