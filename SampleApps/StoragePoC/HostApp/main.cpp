@@ -1,6 +1,7 @@
 #include <iostream>
 #include <filesystem>
 #include <limits>
+#include <span>
 #include <string>
 #include <vector>
 
@@ -8,6 +9,8 @@
 
 #include <veil/host/enclave_api.vtl0.h>
 #include <veil/host/logger.vtl0.h>
+
+#include <VbsEnclave/HostApp/Stubs/Trusted.h>
 
 #include "StorageFlowHandler.h"
 
@@ -90,7 +93,7 @@ int main(int argc, char* argv[])
 		{
 			std::cout << "Invalid input. Please enter a valid option (1-5).\n";
 			std::cin.clear();
-			std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+         std::cin.ignore((std::numeric_limits<std::streamsize>::max)(), '\n');
 			continue;
 		}
 
@@ -111,7 +114,7 @@ int main(int argc, char* argv[])
 			else if (choice == 3)
 			{
 				std::wcout << L"Enter the new text for data.txt: ";
-				std::wcin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+                std::wcin.ignore((std::numeric_limits<std::streamsize>::max)(), '\n');
 				std::wstring input;
 				std::getline(std::wcin, input);
 

@@ -114,7 +114,7 @@ Alternative (if you prefer NuGet CLI):
 nuget restore StoragePoC.sln
 ```
 
-Note: restoring NuGet packages is required for the native C++ projects. If packages are not restored you may see build errors such as missing targets (e.g. `Microsoft.Windows.ImplementationLibrary.targets`) or missing headers like `gsl/gsl_util`.
+Note: restoring NuGet packages is required for the native C++ projects. If packages are not restored you may see build errors such as missing targets (e.g. `Microsoft.Windows.ImplementationLibrary.targets`). The repository now includes a versioned compatibility shim at `compat/gsl/gsl_util`, so no manual GSL header patching inside `packages` is needed.
 
 Troubleshooting:
 
@@ -124,17 +124,6 @@ Troubleshooting:
   `nuget install Microsoft.Windows.ImplementationLibrary -Version 1.0.240803.1 -OutputDirectory packages`
 - If you see missing include errors such as `gsl/gsl_util`, ensure the `packages` folder is present at the solution root and the include paths were restored. Consider deleting the `packages` folder and restoring again.
 - In Visual Studio: right-click the solution -> `Restore NuGet Packages` and then rebuild the solution.
-
-Visual Studio (Package Manager Console) note:
-
-- For some native headers (for example GSL) restoring may not populate project-specific packages. Open Visual Studio and go to `Tools` -> `NuGet Package Manager` -> `Package Manager Console` (do not use a regular Windows PowerShell window). In that console run:
-
-```powershell
-Install-Package Microsoft.GSL -ProjectName Trusted
-Install-Package Microsoft.GSL -ProjectName HostApp
-```
-
-This explicitly adds the `Microsoft.GSL` package to the `Trusted` and `HostApp` projects and resolves missing `gsl/gsl_util` include errors.
 
 After successful package restore, continue with Step 3 to build the solution.
 

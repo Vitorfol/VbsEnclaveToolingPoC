@@ -19,7 +19,7 @@ std::vector<uint8_t> HashSha384(_In_ std::span<const uint8_t> data)
 {
 	wil::unique_bcrypt_hash hash;
 	THROW_IF_NTSTATUS_FAILED(BCryptCreateHash(BCRYPT_SHA384_ALG_HANDLE, &hash, nullptr, 0, nullptr, 0, 0));
-	THROW_IF_NTSTATUS_FAILED(BCryptHashData(hash.get(), const_cast<PUCHAR>(data.data()), veil::vtl1::narrow_cast<ULONG>(data.size()), 0));
+  THROW_IF_NTSTATUS_FAILED(BCryptHashData(hash.get(), const_cast<PUCHAR>(data.data()), gsl::narrow_cast<ULONG>(data.size()), 0));
 
 	ULONG hashSize = 0;
 	ULONG resultSize = 0;

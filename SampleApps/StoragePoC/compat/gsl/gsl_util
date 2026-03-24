@@ -1,0 +1,12 @@
+#pragma once
+
+#include <type_traits>
+
+namespace gsl
+{
+    template <typename T, typename U>
+    constexpr T narrow_cast(U value) noexcept
+    {
+        return static_cast<T>(value);
+    }
+}
