@@ -125,6 +125,17 @@ Troubleshooting:
 - If you see missing include errors such as `gsl/gsl_util`, ensure the `packages` folder is present at the solution root and the include paths were restored. Consider deleting the `packages` folder and restoring again.
 - In Visual Studio: right-click the solution -> `Restore NuGet Packages` and then rebuild the solution.
 
+Visual Studio (Package Manager Console) note:
+
+- For some native headers (for example GSL) restoring may not populate project-specific packages. Open Visual Studio and go to `Tools` -> `NuGet Package Manager` -> `Package Manager Console` (do not use a regular Windows PowerShell window). In that console run:
+
+```powershell
+Install-Package Microsoft.GSL -ProjectName Trusted
+Install-Package Microsoft.GSL -ProjectName HostApp
+```
+
+This explicitly adds the `Microsoft.GSL` package to the `Trusted` and `HostApp` projects and resolves missing `gsl/gsl_util` include errors.
+
 After successful package restore, continue with Step 3 to build the solution.
 
 ### Step 3 - build Debug x64
