@@ -133,6 +133,8 @@ After successful package restore, continue with Step 3 to build the solution.
 msbuild StoragePoC.sln /p:Configuration=Debug /p:Platform=x64 /p:OutDir=_build\x64\Debug\
 ```
 
+Note: `OutDir` can be passed as a relative path (as above). The projects normalize it to the solution root, so outputs are produced in `./_build/x64/Debug`.
+
 Expected outputs in `_build\x64\Debug\`:
 
 - `HostApp.exe`

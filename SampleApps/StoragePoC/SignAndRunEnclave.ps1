@@ -127,14 +127,41 @@ Write-Host ""
 
 # 5. Sign enclave DLL
 Write-Host "[5/6] Signing enclave DLL..." -ForegroundColor Yellow
-$signOutput = & (Join-Path $toolsPath "signtool.exe") sign /ph /fd SHA256 /n $CertName $DllName 2>&1
-$signOutputStr = $signOutput -join "`n"
+$stdOutFile = Join-Path $env:TEMP "storagepoc_signtool_stdout.txt"
+$stdErrFile = Join-Path $env:TEMP "storagepoc_signtool_stderr.txt"
+
+if (Test-Path $stdOutFile) { Remove-Item $stdOutFile -Force }
+if (Test-Path $stdErrFile) { Remove-Item $stdErrFile -Force }
+
+$signProcess = Start-Process `
+	-FilePath (Join-Path $toolsPath "signtool.exe") `
+	-ArgumentList @("sign", "/ph", "/fd", "SHA256", "/n", $CertName, $DllName) `
+	-NoNewWindow `
+	-Wait `
+	-PassThru `
+	-RedirectStandardOutput $stdOutFile `
+	-RedirectStandardError $stdErrFile
+
+$signExitCode = $signProcess.ExitCode
+$signOutputStr = ""
+if (Test-Path $stdOutFile) { $signOutputStr += (Get-Content $stdOutFile -Raw) }
+if (Test-Path $stdErrFile) {
+	if ($signOutputStr.Length -gt 0) { $signOutputStr += "`n" }
+	$signOutputStr += (Get-Content $stdErrFile -Raw)
+}
+
+if (Test-Path $stdOutFile) { Remove-Item $stdOutFile -Force }
+if (Test-Path $stdErrFile) { Remove-Item $stdErrFile -Force }
 
 if ($signOutputStr -notmatch "Successfully signed") {
 	Write-Error "Failed to sign $DllName"
 	Write-Host $signOutputStr
 	Pop-Location
 	exit 1
+}
+
+if ($signExitCode -ne 0) {
+	Write-Host "   signtool returned exit code $signExitCode (warning). Continuing because file was signed." -ForegroundColor Yellow
 }
 
 Write-Host "   DLL signed successfully" -ForegroundColor Green
