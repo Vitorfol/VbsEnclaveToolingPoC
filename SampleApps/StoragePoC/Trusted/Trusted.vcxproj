@@ -191,8 +191,6 @@
     </Link>
     <PostBuildEvent>
       <Command>
-        $(VEIID_Command)
-        $(SIGNTOOL_Command)
       </Command>
       <Message>Apply VEIID Protection and sign the enclave</Message>
     </PostBuildEvent>
@@ -255,6 +253,7 @@
     <Import Project="..\packages\Microsoft.Windows.ImplementationLibrary.1.0.240803.1\build\native\Microsoft.Windows.ImplementationLibrary.targets" Condition="Exists('..\packages\Microsoft.Windows.ImplementationLibrary.1.0.240803.1\build\native\Microsoft.Windows.ImplementationLibrary.targets')" />
     <Import Project="..\packages\Microsoft.Windows.VbsEnclave.SDK.0.0.2-prerelease.250520.3\build\native\Microsoft.Windows.VbsEnclave.SDK.targets" Condition="Exists('..\packages\Microsoft.Windows.VbsEnclave.SDK.0.0.2-prerelease.250520.3\build\native\Microsoft.Windows.VbsEnclave.SDK.targets')" />
     <Import Project="..\packages\Microsoft.Windows.VbsEnclave.CodeGenerator.0.1.0-prerelease.250731.6\build\native\Microsoft.Windows.VbsEnclave.CodeGenerator.targets" Condition="Exists('..\packages\Microsoft.Windows.VbsEnclave.CodeGenerator.0.1.0-prerelease.250731.6\build\native\Microsoft.Windows.VbsEnclave.CodeGenerator.targets')" />
+    <Import Project="..\packages\Microsoft.Gsl.0.1.2.1\build\native\Microsoft.Gsl.targets" Condition="Exists('..\packages\Microsoft.Gsl.0.1.2.1\build\native\Microsoft.Gsl.targets')" />
   </ImportGroup>
   <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">
     <PropertyGroup>
@@ -265,5 +264,6 @@
     <Error Condition="!Exists('..\packages\Microsoft.Windows.VbsEnclave.SDK.0.0.2-prerelease.250520.3\build\native\Microsoft.Windows.VbsEnclave.SDK.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\Microsoft.Windows.VbsEnclave.SDK.0.0.2-prerelease.250520.3\build\native\Microsoft.Windows.VbsEnclave.SDK.targets'))" />
     <Error Condition="!Exists('..\packages\Microsoft.Windows.VbsEnclave.CodeGenerator.0.1.0-prerelease.250731.6\build\native\Microsoft.Windows.VbsEnclave.CodeGenerator.props')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\Microsoft.Windows.VbsEnclave.CodeGenerator.0.1.0-prerelease.250731.6\build\native\Microsoft.Windows.VbsEnclave.CodeGenerator.props'))" />
     <Error Condition="!Exists('..\packages\Microsoft.Windows.VbsEnclave.CodeGenerator.0.1.0-prerelease.250731.6\build\native\Microsoft.Windows.VbsEnclave.CodeGenerator.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\Microsoft.Windows.VbsEnclave.CodeGenerator.0.1.0-prerelease.250731.6\build\native\Microsoft.Windows.VbsEnclave.CodeGenerator.targets'))" />
+    <Error Condition="!Exists('..\packages\Microsoft.Gsl.0.1.2.1\build\native\Microsoft.Gsl.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\Microsoft.Gsl.0.1.2.1\build\native\Microsoft.Gsl.targets'))" />
   </Target>
 </Project>

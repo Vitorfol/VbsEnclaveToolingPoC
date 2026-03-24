@@ -114,6 +114,19 @@ Alternative (if you prefer NuGet CLI):
 nuget restore StoragePoC.sln
 ```
 
+Note: restoring NuGet packages is required for the native C++ projects. If packages are not restored you may see build errors such as missing targets (e.g. `Microsoft.Windows.ImplementationLibrary.targets`) or missing headers like `gsl/gsl_util`.
+
+Troubleshooting:
+
+- If `msbuild /t:Restore` does not fetch packages, try the NuGet CLI:
+  `nuget restore StoragePoC.sln`
+- If a specific package is reported missing (for example `Microsoft.Windows.ImplementationLibrary.1.0.240803.1`), you can install it directly to the `packages` folder:
+  `nuget install Microsoft.Windows.ImplementationLibrary -Version 1.0.240803.1 -OutputDirectory packages`
+- If you see missing include errors such as `gsl/gsl_util`, ensure the `packages` folder is present at the solution root and the include paths were restored. Consider deleting the `packages` folder and restoring again.
+- In Visual Studio: right-click the solution -> `Restore NuGet Packages` and then rebuild the solution.
+
+After successful package restore, continue with Step 3 to build the solution.
+
 ### Step 3 - build Debug x64
 
 ```powershell
