@@ -130,10 +130,11 @@ After successful package restore, continue with Step 3 to build the solution.
 ### Step 3 - build Debug x64
 
 ```powershell
-msbuild StoragePoC.sln /p:Configuration=Debug /p:Platform=x64 /p:OutDir=_build\x64\Debug\
+$out = Join-Path (Get-Location) "_build\x64\Debug\"
+msbuild StoragePoC.sln /p:Configuration=Debug /p:Platform=x64 /p:OutDir=$out
 ```
 
-Note: `OutDir` can be passed as a relative path (as above). The projects normalize it to the solution root, so outputs are produced in `./_build/x64/Debug`.
+Note: this keeps artifacts consistently in the solution root under `./_build/x64/Debug` (instead of project-local output folders).
 
 Expected outputs in `_build\x64\Debug\`:
 
@@ -177,6 +178,28 @@ With persistence path:
 
 ```powershell
 .\_build\x64\Debug\HostApp.exe C:\temp\storagepoc
+```
+
+### Recommended persistence path on disk
+
+To keep persisted artifacts outside the repo, create a dedicated folder and pass it explicitly:
+
+```powershell
+mkdir C:\Users\necta\Desktop\Content\PoC -Force
+.\_build\x64\Debug\HostApp.exe C:\Users\necta\Desktop\Content\PoC
+```
+
+In this case the files will always be written to:
+
+- `C:\Users\necta\Desktop\Content\PoC\blob.txt`
+- `C:\Users\necta\Desktop\Content\PoC\data.txt`
+
+Quick validation:
+
+```powershell
+dir C:\Users\necta\Desktop\Content\PoC
+Get-Content C:\Users\necta\Desktop\Content\PoC\blob.txt
+Get-Content C:\Users\necta\Desktop\Content\PoC\data.txt
 ```
 
 ### Host menu
