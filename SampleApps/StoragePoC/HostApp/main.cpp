@@ -99,25 +99,25 @@ int main(int argc, char* argv[])
 			if (choice == 1)
 			{
 				THROW_IF_FAILED(storagepoc::host::RunSetupFlow(enclave.get(), paths, veilLog));
-				std::wcout << L"Setup finalizado. Arquivos blob.txt e data.txt criados." << std::endl;
+				std::wcout << L"Setup completed. blob.txt and data.txt were created." << std::endl;
 			}
 			else if (choice == 2)
 			{
 				std::vector<uint8_t> plaintext;
 				THROW_IF_FAILED(storagepoc::host::RunPostSetupReadFlow(enclave.get(), paths, plaintext, veilLog));
 				auto text = FromUtf8Bytes(plaintext);
-				std::wcout << L"Plaintext atual: " << text << std::endl;
+				std::wcout << L"Current plaintext: " << text << std::endl;
 			}
 			else if (choice == 3)
 			{
-				std::wcout << L"Digite o novo texto para data.txt: ";
+				std::wcout << L"Enter the new text for data.txt: ";
 				std::wcin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
 				std::wstring input;
 				std::getline(std::wcin, input);
 
 				auto payload = ToUtf8Bytes(input);
 				THROW_IF_FAILED(storagepoc::host::RunPostSetupWriteFlow(enclave.get(), paths, payload, veilLog));
-				std::wcout << L"Update finalizado. data.txt sobrescrito com novo texto criptografado." << std::endl;
+				std::wcout << L"Update completed. data.txt was overwritten with newly encrypted text." << std::endl;
 			}
 			else if (choice == 4)
 			{
@@ -136,7 +136,7 @@ int main(int argc, char* argv[])
 		}
 		catch (...)
 		{
-			std::wcout << L"Erro no fluxo. Verifique logs e artefatos persistidos." << std::endl;
+			std::wcout << L"Flow failed. Check logs and persisted artifacts." << std::endl;
 		}
 	}
 

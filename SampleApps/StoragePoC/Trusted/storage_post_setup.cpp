@@ -9,6 +9,35 @@ namespace storagepoc::trusted::post_setup
 {
 namespace
 {
+constexpr std::array<uint8_t, 4> kMetadataMagic = {'M', 'E', 'T', 'A'};
+constexpr uint8_t kMetadataVersion = 1;
+constexpr uint8_t kCipherAesGcmPocV1 = 1;
+
+std::vector<uint8_t> BuildPayloadMetadata()
+{
+    // Minimal metadata schema for PoC (no nonce for now):
+    // [magic:4][version:1][cipher_id:1]
+    std::vector<uint8_t> metadata;
+    metadata.reserve(6);
+    metadata.insert(metadata.end(), kMetadataMagic.begin(), kMetadataMagic.end());
+    metadata.push_back(kMetadataVersion);
+    metadata.push_back(kCipherAesGcmPocV1);
+    return metadata;
+}
+
+void ValidatePayloadMetadata(_In_ std::span<const uint8_t> metadata)
+{
+    THROW_HR_IF(E_INVALIDARG, metadata.size() != 6);
+    THROW_HR_IF(E_INVALIDARG,
+        !std::equal(kMetadataMagic.begin(), kMetadataMagic.end(), metadata.begin()));
+
+    const auto version = metadata[4];
+    const auto cipherId = metadata[5];
+
+    THROW_HR_IF(E_NOTIMPL, version != kMetadataVersion);
+    THROW_HR_IF(E_NOTIMPL, cipherId != kCipherAesGcmPocV1);
+}
+
 wil::secure_vector<uint8_t> LoadSymmetricKeyBytes(
     _In_ const std::vector<uint8_t>& protectedKeyMaterialBlob,
     _Out_ std::vector<uint8_t>& maybeResealedKeyMaterialBlob)
@@ -53,8 +82,7 @@ HRESULT EncryptPayload(
         ciphertextPayload.assign(ciphertext.begin(), ciphertext.end());
         payloadTag.assign(tag.begin(), tag.end());
 
-        // TODO(storage-poc): Define metadata format (version, nonce, aad hash, etc.).
-        payloadMetadataBlob = {'P', 'L', 'D', 'v', '1'};
+        payloadMetadataBlob = BuildPayloadMetadata();
 
         return S_OK;
     }
@@ -73,8 +101,7 @@ HRESULT DecryptPayload(
 {
     try
     {
-        (void)payloadMetadataBlob;
-        // TODO(storage-poc): Validate metadata version and integrity rules before decrypting.
+        ValidatePayloadMetadata(payloadMetadataBlob);
 
         auto keyBytes = LoadSymmetricKeyBytes(protectedKeyMaterialBlob, maybeResealedKeyMaterialBlob);
         auto symmetricKey = veil::vtl1::crypto::create_symmetric_key(keyBytes);
