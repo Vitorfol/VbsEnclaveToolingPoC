@@ -2,6 +2,19 @@
 
 This proof of concept demonstrates a persistence flow where plaintext is handled only inside the enclave (VTL1), while the host (VTL0) stores only encrypted artifacts.
 
+## Table of Contents
+
+- [Overview](#overview)
+- [PoC Tree](#poc-tree)
+- [PoC Flow](#poc-flow)
+- [Persisted File Formats](#persisted-file-formats)
+- [Prerequisites](#prerequisites)
+- [Build (output in _build/x64/Debug)](#build-output-in-_buildx64debug)
+- [Enclave Signing](#enclave-signing)
+- [Run](#run)
+- [Host Menu](#host-menu)
+- [Observations and Limitations](#observations-and-limitations)
+
 ## Overview
 
 ### Goal
@@ -17,59 +30,117 @@ This proof of concept demonstrates a persistence flow where plaintext is handled
 - `Trusted` (VTL1): generates/protects `S`, encrypts/decrypts text, and applies business logic.
 - `PoC.edl`: VTL0 <-> VTL1 contract used by code generation.
 
+### Key generation and sealing source
+
+The key lifecycle is implemented with enclave SDK APIs (via VEIL wrappers) in `Trusted`:
+
+- Key generation: `veil::vtl1::crypto::generate_symmetric_key_bytes()`
+- Sealing: `veil::vtl1::crypto::seal_data(...)`
+- Unsealing: `veil::vtl1::crypto::unseal_data(...)`
+
+So yes: the symmetric keys are generated inside VTL1 using the enclave SDK crypto path, not in host code.
+
+## PoC Tree
+
+```text
+./
+├── StoragePoC.sln                  # Visual Studio solution file
+├── PoC.edl                         # Enclave Definition Language (VTL0↔VTL1 interface)
+├── SignAndRunEnclave.ps1           # Signs enclave DLL with test cert + VEIID
+├── README.md                       
+├── PoC_storage.png                 # Optional architecture/flow image
+│
+├── compat/
+│   └── gsl/
+│       └── gsl_util                # Compatibility shim for GSL include
+│
+├── HostApp/                        # VTL0 host application
+│   ├── main.cpp                    # CLI/menu, enclave load/init, flow entry
+│   ├── StorageFlowHandler.cpp      # Setup/read/write orchestration and file persistence
+│   ├── StorageFlowHandler.h        # Host flow API contracts
+│   ├── HostApp.vcxproj             # Host project definition
+│   ├── HostApp.vcxproj.filters     # VS filter organization
+│   ├── Directory.Build.props       # Shared MSBuild properties (host)
+│   └── packages.config             # NuGet dependencies (host)
+│
+├── Trusted/                        # VTL1 enclave code
+│   ├── dllmain.cpp                 # Enclave entrypoint
+│   ├── trusted_exports.cpp         # Exported ECALL implementations
+│   ├── storage_setup.cpp           # Key provisioning/setup logic
+│   ├── storage_setup.h             # Setup declarations
+│   ├── storage_post_setup.cpp      # Encrypt/decrypt post-setup operations
+│   ├── storage_post_setup.h        # Post-setup declarations
+│   ├── utils.cpp                   # Sealing/unsealing, hashing, blob helpers
+│   ├── utils.h                     # Utility declarations
+│   ├── pch.h                       # Shared enclave headers/macros
+│   ├── pch.cpp                     # Precompiled header source
+│   ├── Trusted.vcxproj             # Enclave project (/ENCLAVE)
+│   ├── Trusted.vcxproj.filters     # VS filter organization
+│   ├── Directory.Build.props       # Shared MSBuild properties (trusted)
+│   └── packages.config             # NuGet dependencies (trusted)
+│
+└── _build/                         # Build outputs (generated)
+    └── x64/
+        └── Debug/
+            ├── HostApp.exe         # Host binary
+            ├── storagepoc.dll      # Signed enclave binary (VTL1)
+            └── Generated Files/    # Auto-generated stubs/headers (if generated)
+```
+
 ## PoC Flow
 
 ### Common steps
 
 1. Host creates/loads/initializes the enclave.
 2. Host registers VTL0 callbacks.
-3. Host invokes an ECALL to obtain MRENCLAVE hash material (diagnostics and protected blob binding).
+3. Host invokes an ECALL to obtain MRENCLAVE-derived hash material (diagnostics and binding visibility).
+
+### Trust material used by the flow
+
+- `S`: symmetric data key, generated in VTL1.
+- `K`: effective sealing key material derived by enclave sealing from hardware-protected secrets and enclave identity policy.
+- `MRENCLAVE hash material`: explicit identity binding stored inside the sealed payload and validated during recovery.
 
 ### Setup (one-time per path)
 
 1. VTL1 generates the symmetric key `S`.
-2. VTL1 protects `S` using enclave sealing.
-3. VTL1 encrypts the initial text "Hello, world" using `S`.
-4. VTL0 persists:
+2. VTL1 computes MRENCLAVE hash material.
+3. VTL1 builds a payload containing `S` + MRENCLAVE hash material.
+4. VTL1 seals this payload (hardware-rooted + enclave identity policy), producing `encrypted_key.txt` content.
+5. VTL1 encrypts the initial text "Hello, world" using `S`.
+6. VTL0 persists:
    - `encrypted_key.txt` (protected key `S`)
    - `data.txt` (encrypted data)
-5. If `encrypted_key.txt` or `data.txt` already exists, setup fails with `already exists`.
+7. If `encrypted_key.txt` or `data.txt` already exists, setup fails with `already exists`.
 
 ### Post-setup
 
 1. VTL0 reads `encrypted_key.txt` and `data.txt`.
 2. VTL0 sends both artifacts to VTL1.
-3. VTL1 recovers `S` from `encrypted_key.txt`.
-4. VTL1 decrypts `data.txt`, applies business logic to plaintext, and re-encrypts.
-5. VTL0 overwrites `data.txt`.
-6. `encrypted_key.txt` remains unchanged unless a reseal blob is returned by the enclave.
+3. VTL1 unseals `encrypted_key.txt` using enclave sealing (same trust roots as setup).
+4. VTL1 validates embedded MRENCLAVE hash material against the running enclave identity.
+5. VTL1 recovers `S` and decrypts `data.txt`.
+6. VTL1 applies business logic in plaintext and re-encrypts using `S`.
+7. VTL0 overwrites `data.txt`.
+8. `encrypted_key.txt` remains unchanged unless a reseal blob is returned by the enclave.
 
 ## Persisted File Formats
 
-### encrypted_key.txt
+Both files use a simple key-value text format.
 
-Text key-value file:
+### encrypted_key.txt (sealed key blob)
 
 - `format=SPOC_BLOB_V1`
-- `wrapped_s_hex=<hex>`
+- `wrapped_s_hex=<hex>` (opaque sealed representation of `S`)
 
-`wrapped_s_hex` is the opaque sealed representation of `S`.
-
-### data.txt
-
-Text key-value file:
+### data.txt (encrypted payload)
 
 - `format=SPOC_DATA_V1`
 - `ciphertext_hex=<hex>`
 - `tag_hex=<hex>`
 - `metadata_hex=<hex>`
 
-`metadata_hex` schema (PoC, no nonce):
-
-- bytes `[magic:4][version:1][cipher_id:1]`
-- `magic = META`
-- `version = 1`
-- `cipher_id = 1` (AES-GCM PoC v1)
+`metadata_hex` (PoC v1, no nonce) stores `[magic:4][version:1][cipher_id:1]`, where `magic=META`, `version=1`, and `cipher_id=1` (AES-GCM PoC v1).
 
 ## Prerequisites
 
@@ -114,7 +185,7 @@ Alternative (if you prefer NuGet CLI):
 nuget restore StoragePoC.sln
 ```
 
-Note: restoring NuGet packages is required for the native C++ projects. If packages are not restored you may see build errors such as missing targets (e.g. `Microsoft.Windows.ImplementationLibrary.targets`). The repository now includes a versioned compatibility shim at `compat/gsl/gsl_util`, so no manual GSL header patching inside `packages` is needed.
+Note: restoring NuGet packages is required for the native C++ projects. If packages are not restored you may see build errors such as missing targets (e.g. `Microsoft.Windows.ImplementationLibrary.targets`). The repository includes a versioned compatibility shim at `compat/gsl/gsl_util`, so no manual GSL header patching inside `packages` is needed.
 
 Troubleshooting:
 
@@ -177,7 +248,7 @@ No argument (uses current directory for `encrypted_key.txt` and `data.txt`):
 With persistence path:
 
 ```powershell
-.\_build\x64\Debug\HostApp.exe C:\temp\storagepoc
+.\_build\x64\Debug\HostApp.exe <persistence_dir>
 ```
 
 ### Recommended persistence path on disk
@@ -185,24 +256,25 @@ With persistence path:
 To keep persisted artifacts outside the repo, create a dedicated folder and pass it explicitly:
 
 ```powershell
-mkdir C:\Users\necta\Desktop\Content\PoC -Force
-.\_build\x64\Debug\HostApp.exe C:\Users\necta\Desktop\Content\PoC
+$persistDir = Join-Path $env:USERPROFILE "StoragePoC\Data"
+New-Item -ItemType Directory -Path $persistDir -Force | Out-Null
+.\_build\x64\Debug\HostApp.exe $persistDir
 ```
 
 In this case the files will always be written to:
 
-- `C:\Users\necta\Desktop\Content\PoC\encrypted_key.txt`
-- `C:\Users\necta\Desktop\Content\PoC\data.txt`
+- `$persistDir\encrypted_key.txt`
+- `$persistDir\data.txt`
 
 Quick validation:
 
 ```powershell
-dir C:\Users\necta\Desktop\Content\PoC
-Get-Content C:\Users\necta\Desktop\Content\PoC\encrypted_key.txt
-Get-Content C:\Users\necta\Desktop\Content\PoC\data.txt
+dir $persistDir
+Get-Content (Join-Path $persistDir "encrypted_key.txt")
+Get-Content (Join-Path $persistDir "data.txt")
 ```
 
-### Host menu
+## Host Menu
 
 1. Setup one-time (creates `encrypted_key.txt` and `data.txt`)
 2. Read (decrypts and shows current plaintext)
@@ -210,19 +282,8 @@ Get-Content C:\Users\necta\Desktop\Content\PoC\data.txt
 4. Show storage paths
 5. Exit
 
-## Current PoC Scope
+## Observations and Limitations
 
-- This is not a production design.
 - No per-record nonce at this stage (explicit PoC decision).
-- Anti-tamper validation can be hardened in a future phase.
+- No anti-tamper validation implemented.
 
-## Main Files
-
-- `PoC.edl`
-- `HostApp/main.cpp`
-- `HostApp/StorageFlowHandler.h`
-- `HostApp/StorageFlowHandler.cpp`
-- `Trusted/storage_setup.cpp`
-- `Trusted/storage_post_setup.cpp`
-- `Trusted/trusted_exports.cpp`
-- `Trusted/utils.cpp`
