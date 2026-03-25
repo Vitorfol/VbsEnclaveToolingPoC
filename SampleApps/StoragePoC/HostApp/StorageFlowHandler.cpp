@@ -198,7 +198,7 @@ HRESULT RunSetupFlow(
         WriteDataFile(paths.encryptedDataPath, envelope);
 
         log.AddTimestampedLog(
-            L"[Host] Setup flow completed. blob.txt and data.txt persisted.",
+           L"[Host] Setup flow completed. encrypted_key.txt and data.txt persisted.",
             veil::any::logger::eventLevel::EVENT_LEVEL_INFO);
 
         return S_OK;

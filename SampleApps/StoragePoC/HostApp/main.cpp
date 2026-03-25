@@ -21,7 +21,7 @@ namespace
 storagepoc::host::StorageArtifactPaths BuildDefaultPaths(_In_ const fs::path& root)
 {
 	return {
-		root / "blob.txt",
+      root / "encrypted_key.txt",
 		root / "data.txt",
 	};
 }
@@ -81,7 +81,7 @@ int main(int argc, char* argv[])
 	while (true)
 	{
 		std::cout << "\n*** Storage PoC Menu ***\n";
-		std::cout << "1. Setup (one-time): create blob.txt + data.txt with encrypted 'Hello, world'\n";
+     std::cout << "1. Setup (one-time): create encrypted_key.txt + data.txt with encrypted 'Hello, world'\n";
 		std::cout << "2. Post-setup READ: decrypt data.txt and show plaintext\n";
 		std::cout << "3. Post-setup WRITE/UPDATE: encrypt new text and overwrite data.txt\n";
 		std::cout << "4. Show storage paths\n";
@@ -102,7 +102,7 @@ int main(int argc, char* argv[])
 			if (choice == 1)
 			{
 				THROW_IF_FAILED(storagepoc::host::RunSetupFlow(enclave.get(), paths, veilLog));
-				std::wcout << L"Setup completed. blob.txt and data.txt were created." << std::endl;
+             std::wcout << L"Setup completed. encrypted_key.txt and data.txt were created." << std::endl;
 			}
 			else if (choice == 2)
 			{
@@ -124,7 +124,7 @@ int main(int argc, char* argv[])
 			}
 			else if (choice == 4)
 			{
-				std::wcout << L"blob: " << paths.protectedKeyBlobPath.wstring() << std::endl;
+               std::wcout << L"encrypted_key: " << paths.protectedKeyBlobPath.wstring() << std::endl;
 				std::wcout << L"data: " << paths.encryptedDataPath.wstring() << std::endl;
 			}
 			else if (choice == 5)

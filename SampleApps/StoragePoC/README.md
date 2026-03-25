@@ -7,7 +7,7 @@ This proof of concept demonstrates a persistence flow where plaintext is handled
 ### Goal
 
 - Generate a symmetric key `S` inside the enclave.
-- Protect `S` in a persistable blob (`blob.txt`) using enclave sealing.
+- Protect `S` in a persistable encrypted key artifact (`encrypted_key.txt`) using enclave sealing.
 - Persist encrypted application data in `data.txt`.
 - On later executions, recover `S` inside the enclave, read/update data, and persist again without exposing plaintext to VTL0.
 
@@ -31,22 +31,22 @@ This proof of concept demonstrates a persistence flow where plaintext is handled
 2. VTL1 protects `S` using enclave sealing.
 3. VTL1 encrypts the initial text "Hello, world" using `S`.
 4. VTL0 persists:
-   - `blob.txt` (protected key `S`)
+   - `encrypted_key.txt` (protected key `S`)
    - `data.txt` (encrypted data)
-5. If `blob.txt` or `data.txt` already exists, setup fails with `already exists`.
+5. If `encrypted_key.txt` or `data.txt` already exists, setup fails with `already exists`.
 
 ### Post-setup
 
-1. VTL0 reads `blob.txt` and `data.txt`.
+1. VTL0 reads `encrypted_key.txt` and `data.txt`.
 2. VTL0 sends both artifacts to VTL1.
-3. VTL1 recovers `S` from `blob.txt`.
+3. VTL1 recovers `S` from `encrypted_key.txt`.
 4. VTL1 decrypts `data.txt`, applies business logic to plaintext, and re-encrypts.
 5. VTL0 overwrites `data.txt`.
-6. `blob.txt` remains unchanged unless a reseal blob is returned by the enclave.
+6. `encrypted_key.txt` remains unchanged unless a reseal blob is returned by the enclave.
 
 ## Persisted File Formats
 
-### blob.txt
+### encrypted_key.txt
 
 Text key-value file:
 
@@ -168,7 +168,7 @@ It performs:
 
 After build + signing:
 
-No argument (uses current directory for `blob.txt` and `data.txt`):
+No argument (uses current directory for `encrypted_key.txt` and `data.txt`):
 
 ```powershell
 .\_build\x64\Debug\HostApp.exe
@@ -191,20 +191,20 @@ mkdir C:\Users\necta\Desktop\Content\PoC -Force
 
 In this case the files will always be written to:
 
-- `C:\Users\necta\Desktop\Content\PoC\blob.txt`
+- `C:\Users\necta\Desktop\Content\PoC\encrypted_key.txt`
 - `C:\Users\necta\Desktop\Content\PoC\data.txt`
 
 Quick validation:
 
 ```powershell
 dir C:\Users\necta\Desktop\Content\PoC
-Get-Content C:\Users\necta\Desktop\Content\PoC\blob.txt
+Get-Content C:\Users\necta\Desktop\Content\PoC\encrypted_key.txt
 Get-Content C:\Users\necta\Desktop\Content\PoC\data.txt
 ```
 
 ### Host menu
 
-1. Setup one-time (creates `blob.txt` and `data.txt`)
+1. Setup one-time (creates `encrypted_key.txt` and `data.txt`)
 2. Read (decrypts and shows current plaintext)
 3. Write/Update (encrypts new text and overwrites `data.txt`)
 4. Show storage paths
